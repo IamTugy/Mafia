@@ -38,7 +38,7 @@ export function Lobby() {
           <div className="space-y-4">
             <Button
               onClick={handleCreateGame}
-              className="w-full bg-gray-700/80 hover:bg-gray-600/80 text-white border border-gray-600 cursor-pointer"
+              variant="semiTransparent"
               size="lg"
             >
               <PlusCircle className="mr-2 h-5 w-5" />
@@ -64,7 +64,7 @@ export function Lobby() {
               />
               <Button
                 onClick={handleJoinGame}
-                className="w-full bg-gray-700/80 hover:bg-gray-600/80 text-white border border-gray-600 cursor-pointer"
+                variant="semiTransparent"
                 size="lg"
               >
                 <Gamepad2 className="mr-2 h-5 w-5" />
