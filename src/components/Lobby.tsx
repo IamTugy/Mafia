@@ -21,10 +21,7 @@ export function Lobby() {
 
   return (
     <div
-      className="h-screen w-screen flex items-center justify-center p-4 bg-cover bg-center overflow-hidden"
-      style={{
-        backgroundImage: `url('/src/assets/mafia-horizontal-background.png')`,
-      }}
+      className="h-screen w-screen flex items-center justify-center p-4 bg-cover bg-center overflow-hidden bg-[url('/src/assets/mafia-vertical-background.png')] sm:bg-[url('/src/assets/mafia-horizontal-background.png')]"
     >
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center sm:bg-[url('/src/assets/mafia-horizontal-background.png')] bg-[url('/src/assets/mafia-vertical-background.png')]"

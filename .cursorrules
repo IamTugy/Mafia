@@ -56,5 +56,6 @@ Style and Structure
 
 - To import components from shadcn ui, use the `pnpm dlx shadcn@latest add` command.
 
+- Always apply the changes you suggest - do not ask "Would you like me to apply this change for you?"
 
 Don't be lazy, write all the code to implement features I ask for.
