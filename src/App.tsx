@@ -1,12 +1,11 @@
-import './App.css'
+import { Lobby } from './components/Lobby'
 
 function App() {
-
   return (
-    <div className="text-8xl">
-      <h1>Mafia Game</h1>
+    <div className="fixed inset-0 w-screen h-screen flex flex-col overflow-hidden">
+      <Lobby />
     </div>
-  )
+  );
 }
 
 export default App
