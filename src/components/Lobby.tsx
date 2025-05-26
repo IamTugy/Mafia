@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/Card";
 import { PlusCircle, Gamepad2 } from "lucide-react";
+import { LobbyCodeInput } from "./lobby-code-input";
 
 export function Lobby() {
   const [gameCode, setGameCode] = useState("");
@@ -55,17 +56,17 @@ export function Lobby() {
             </div>
 
             <div className="space-y-2">
-              <Input
-                type="text"
-                placeholder="Enter game code"
+              <LobbyCodeInput
                 value={gameCode}
-                onChange={(e) => setGameCode(e.target.value)}
-                className="bg-gray-700/80 border-gray-600 text-white placeholder:text-gray-400"
+                onChange={setGameCode}
+                disabled={false}
+                onEnter={handleJoinGame}
               />
               <Button
                 onClick={handleJoinGame}
                 variant="semiTransparent"
                 size="lg"
+                disabled={gameCode.length !== 6}
               >
                 <Gamepad2 className="mr-2 h-5 w-5" />
                 Join Game
