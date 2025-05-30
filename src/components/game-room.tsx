@@ -7,8 +7,8 @@ interface GameRoomProps {
   hostId: string;
 }
 
-export function GameRoom({ onLeave, hostId }: GameRoomProps) {
-  const { isHost, connectedPeers } = usePeerStore();
+export function GameRoom({ onLeave }: GameRoomProps) {
+  const { isHost, hostId, connectedPeers } = usePeerStore();
   const peerList = Array.from(connectedPeers.values());
 
   return (
@@ -17,7 +17,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="text-2xl flex-1 font-bold text-white">
-              {isHost ? 'Game Room (Host)' : 'Game Room'}
+              {isHost() ? 'Game Room (Host)' : 'Game Room'}
             </CardTitle>
             <Button 
               onClick={onLeave}

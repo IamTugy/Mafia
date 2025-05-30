@@ -1,53 +1,43 @@
 import { create } from 'zustand';
+import type Peer from 'peerjs';
 import type { DataConnection } from 'peerjs';
 
-interface Peer {
+interface ConnectedPeer {
   id: string;
   name: string;
   connection: DataConnection;
 }
 
 interface PeerStore {
-  isHost: boolean;
-  connectedPeers: Map<string, Peer>;
-  setHost: (isHost: boolean) => void;
-  addPeer: (peer: Peer) => void;
-  removePeer: (peerId: string) => void;
-  getPeerList: () => Peer[];
+  hostId: string;
+  currentPeer: Peer | null;
+  connectedPeers: ConnectedPeer[];
+  setHostId: (id: string) => void;
+  setCurrentPeer: (peer: Peer | null) => void;
+  addPeer: (peer: ConnectedPeer) => void;
+  removePeer: (id: string) => void;
+  getPeerList: () => ConnectedPeer[];
+  clearStore: () => void;
+  isHost: () => boolean;
 }
 
 export const usePeerStore = create<PeerStore>((set, get) => ({
-  isHost: false,
-  connectedPeers: new Map(),
-  
-  setHost: (isHost: boolean) => {
-    console.log('Setting host status:', isHost);
-    set({ isHost });
-  },
-  
-  addPeer: (peer: Peer) => {
-    console.log('Adding peer to store:', peer.id, peer.name);
-    set((state) => {
-      const newPeers = new Map(state.connectedPeers);
-      newPeers.set(peer.id, peer);
-      console.log('Store updated, total peers:', newPeers.size);
-      return { connectedPeers: newPeers };
-    });
-  },
-  
-  removePeer: (peerId: string) => {
-    console.log('Removing peer from store:', peerId);
-    set((state) => {
-      const newPeers = new Map(state.connectedPeers);
-      const removed = newPeers.delete(peerId);
-      console.log('Peer removed:', removed, 'Total peers:', newPeers.size);
-      return { connectedPeers: newPeers };
-    });
-  },
-  
-  getPeerList: () => {
-    const peers = Array.from(get().connectedPeers.values());
-    console.log('Getting peer list:', peers.length, 'peers');
-    return peers;
-  }
-})); 
+  hostId: "",
+  currentPeer: null,
+  connectedPeers: [],
+  setHostId: (id: string) => set({ hostId: id }),
+  setCurrentPeer: (peer: Peer | null) => set({ currentPeer: peer }),
+  addPeer: (peer: ConnectedPeer) => set((state) => ({
+    connectedPeers: [...state.connectedPeers, peer],
+  })),
+  removePeer: (id: string) => set((state) => ({
+    connectedPeers: state.connectedPeers.filter((peer) => peer.id !== id),
+  })),
+  getPeerList: () => get().connectedPeers,
+  clearStore: () => set({
+    hostId: "",
+    currentPeer: null,
+    connectedPeers: [],
+  }),
+  isHost: () => get().currentPeer?.id === get().hostId,
+}));
