@@ -2,14 +2,23 @@ import { useState } from 'react';
 import Peer from 'peerjs';
 import type { DataConnection } from 'peerjs';
 import { usePeerStore } from '@/lib/store/peer-store';
+import type { ConnectedPeer, GameState } from '@/lib/store/peer-store';
 
 interface PeerMessage {
-  type: 'join' | 'leave' | 'peerList' | 'message' | 'hostLeft';
+  type: 'join' | 'leave' | 'peerList' | 'message' | 'hostLeft' | 'gameState';
   id?: string;
   name?: string;
   content?: string;
-  peers?: Array<{ id: string; name: string }>;
+  peers?: ConnectedPeer[];
+  gameState?: GameState;
+  playerName?: string;
 }
+
+type MessageContent = {
+  peers?: ConnectedPeer[];
+  gameState?: GameState;
+  id?: string;
+};
 
 interface UsePeerReturn {
   currentPeer: Peer | null;
@@ -17,9 +26,11 @@ interface UsePeerReturn {
   isInGame: boolean;
   isCreating: boolean;
   isJoining: boolean;
+  error: string | null;
   createGame: (playerName: string) => Promise<void>;
   joinGame: (gameId: string, playerName: string) => Promise<void>;
   leaveGame: () => void;
+  broadcastGameState: (newState: Partial<GameState>) => void;
 }
 
 const generateShortId = (): string => {
@@ -31,6 +42,7 @@ export function usePeer(): UsePeerReturn {
   const [isInGame, setIsInGame] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { 
     hostId, 
     currentPeer, 
@@ -38,8 +50,10 @@ export function usePeer(): UsePeerReturn {
     setCurrentPeer, 
     addPeer, 
     removePeer, 
-    getPeerList, 
+    setConnectedPeers,
     connectedPeers,
+    updateGameState,
+    gameState,
     clearStore 
   } = usePeerStore();
 
@@ -57,40 +71,90 @@ export function usePeer(): UsePeerReturn {
 
       peer.on('open', (peerId: string) => {
         console.log('Peer opened with id:', peerId);
+        setError(null);
         resolve({ peer, id: peerId });
       });
 
       peer.on('error', (err) => {
         console.error('Peer creation error:', err);
+        const errorMessage = err.type === 'peer-unavailable' 
+          ? 'Game code not found - please check the code and try again'
+          : 'Failed to connect to game - please try again';
+        setError(errorMessage);
         reject(err);
       });
     });
   };
 
+  // Broadcast game state to all peers except current peer
+  const broadcastGameState = (newState: Partial<GameState>) => {
+    const updatedState = { ...gameState, ...newState };
+    updateGameState(newState);
+    
+    connectedPeers.forEach((p) => {
+      if (p.id !== currentPeer?.id && p.connection) {
+        p.connection.send({
+          type: 'gameState',
+          gameState: updatedState
+        });
+      }
+    });
+  };
+
+  // Broadcast message to all peers except current peer
+  const broadcastMessage = (type: PeerMessage['type'], content?: MessageContent) => {
+    connectedPeers.forEach((p) => {
+      if (p.id !== currentPeer?.id && p.connection) {
+        p.connection.send({
+          type,
+          ...content
+        });
+      }
+    });
+  };
+
+  const handleMessage = (peer: Peer, message: PeerMessage) => {
+    switch (message.type) {
+      case 'gameState':
+        if (message.gameState) {
+          updateGameState(message.gameState);
+        }
+        break;
+      case 'hostLeft':
+        handleHostDisconnection();
+        break;
+      case 'peerList':
+        if (message.peers) {
+          setConnectedPeers(message.peers);
+          console.log('Current connected peers:', connectedPeers);
+        }
+        break;
+    }
+  };
+
   const connectToPeer = (peer: Peer, hostId: string, name: string): DataConnection => {
     console.log('Attempting to connect to host:', hostId);
     const connection = peer.connect(hostId);
-    
+
     connection.on('open', () => {
       console.log('Connection opened with host');
+      setError(null);
+      addPeer({
+        id: peer.id,
+        name,
+      });
       connection.send({ type: 'join', id: peer.id, name });
+      setIsInGame(true);
     });
 
     connection.on('data', (data: unknown) => {
       const message = data as PeerMessage;
       console.log('Received message from host:', message);
-      
-      if (message.type === 'peerList' && message.peers) {
-        console.log('Received peer list:', message.peers);
-      } else if (message.type === 'hostLeft') {
-        console.log('Host left the game');
-        handleHostDisconnection();
-      }
+      handleMessage(peer, message);
     });
 
     connection.on('close', () => {
       console.log('Connection to host closed');
-      // If we're not the host and we lose connection to the host, leave the game
       if (hostId !== peer.id) {
         handleHostDisconnection();
       }
@@ -98,6 +162,12 @@ export function usePeer(): UsePeerReturn {
 
     connection.on('error', (err) => {
       console.error('Connection error:', err);
+      setError('Could not connect to game - please check if the game code is correct');
+      if (peer) {
+        peer.destroy();
+      }
+      clearStore();
+      setIsInGame(false);
     });
 
     return connection;
@@ -114,10 +184,17 @@ export function usePeer(): UsePeerReturn {
     setIsJoining(false);
   };
 
-  const setupHost = (peer: Peer): void => {
+  const setupHost = (peer: Peer, playerName: string): void => {
     console.log('Setting up host with peer ID:', peer.id);
+    
+    // Add the host itself to the connected peers list
+    addPeer({
+      id: peer.id,
+      name: playerName,
+      connection: undefined
+    });
 
-    peer.on('connection', (connection) => {
+    peer.on('connection', (connection: DataConnection) => {
       console.log('New connection received from:', connection.peer);
       
       connection.on('open', () => {
@@ -131,46 +208,28 @@ export function usePeer(): UsePeerReturn {
         if (message.type === 'join' && message.id && message.name) {
           console.log('Adding peer to store:', message.id, message.name);
           
+          // Add the new peer to the store
           addPeer({
             id: message.id,
             name: message.name,
             connection,
           });
 
-          const peerList = getPeerList();
-          console.log('Broadcasting peer list:', peerList);
+          // Broadcast updated peer list to all peers except current
+          console.log('Broadcasting peer list:', connectedPeers);
+          broadcastMessage('peerList', { peers: connectedPeers });
           
-          connectedPeers.forEach((peer) => {
-            peer.connection.send({ 
-              type: 'peerList', 
-              peers: peerList.map(p => ({ id: p.id, name: p.name }))
-            });
-          });
         } else if (message.type === 'leave' && message.id) {
           console.log('Peer leaving:', message.id);
           removePeer(message.id);
-          
-          const peerList = getPeerList();
-          connectedPeers.forEach((peer) => {
-            peer.connection.send({ 
-              type: 'peerList', 
-              peers: peerList.map(p => ({ id: p.id, name: p.name }))
-            });
-          });
+          broadcastMessage('peerList', { peers: connectedPeers });
         }
       });
 
       connection.on('close', () => {
         console.log('Connection closed with peer:', connection.peer);
         removePeer(connection.peer);
-        
-        const peerList = getPeerList();
-        connectedPeers.forEach((peer) => {
-          peer.connection.send({ 
-            type: 'peerList', 
-            peers: peerList.map(p => ({ id: p.id, name: p.name }))
-          });
-        });
+        broadcastMessage('peerList', { peers: connectedPeers });
       });
 
       connection.on('error', (err) => {
@@ -186,14 +245,10 @@ export function usePeer(): UsePeerReturn {
   const cleanupPeer = (peer: Peer): void => {
     if (hostId === peer.id) {
       // If host is leaving, notify all peers
-      connectedPeers.forEach((connectedPeer) => {
-        connectedPeer.connection.send({ type: 'hostLeft' });
-      });
+      broadcastMessage('hostLeft');
     } else {
       // If regular peer is leaving, just notify the host
-      connectedPeers.forEach((connectedPeer) => {
-        connectedPeer.connection.send({ type: 'leave', id: peer.id });
-      });
+      broadcastMessage('leave', { id: peer.id });
     }
 
     const connections = peer.connections;
@@ -217,7 +272,7 @@ export function usePeer(): UsePeerReturn {
       
       setCurrentPeer(peer);
       setHostId(id);
-      setupHost(peer);
+      setupHost(peer, playerName);
       setIsInGame(true);
     } catch (error) {
       console.error('Failed to create game:', error);
@@ -230,6 +285,8 @@ export function usePeer(): UsePeerReturn {
     if (!gameId || !playerName || isJoining) return;
     
     setIsJoining(true);
+    setError(null);
+    
     try {
       console.log('Joining game with ID:', gameId);
       const { peer } = await createPeer();
@@ -238,9 +295,13 @@ export function usePeer(): UsePeerReturn {
       setCurrentPeer(peer);
       setHostId(gameId);
       connectToPeer(peer, gameId, playerName);
-      setIsInGame(true);
     } catch (error) {
       console.error('Failed to join game:', error);
+      if (currentPeer) {
+        currentPeer.destroy();
+      }
+      clearStore();
+      setIsInGame(false);
     } finally {
       setIsJoining(false);
     }
@@ -262,8 +323,10 @@ export function usePeer(): UsePeerReturn {
     isInGame,
     isCreating,
     isJoining,
+    error,
     createGame,
     joinGame,
     leaveGame,
+    broadcastGameState,
   };
 } 

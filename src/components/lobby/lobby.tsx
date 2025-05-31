@@ -4,9 +4,9 @@ import { useState } from "react";
 import { usePeer } from "@/lib/hooks/use-peer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { LobbyCodeInput } from "@/components/lobby-code-input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/Card";
-import { GameRoom } from "./game-room";
+import { LobbyCodeInput } from "@/components/lobby/lobby-code-input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/Card";
+import { GameRoom } from "../game-room";
 
 export function Lobby() {
   const [playerName, setPlayerName] = useState("");
@@ -16,6 +16,7 @@ export function Lobby() {
     isInGame,
     isCreating,
     isJoining,
+    error,
     createGame,
     joinGame,
     leaveGame,
@@ -96,6 +97,14 @@ export function Lobby() {
               {isJoining ? "Joining..." : "Join Game"}
             </Button>
           </CardContent>
+
+          {error && (
+            <div className="px-6">
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-400 text-sm">
+                {error}
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     </div>
