@@ -2,20 +2,20 @@ import { useState } from 'react';
 import Peer from 'peerjs';
 import type { DataConnection } from 'peerjs';
 import { usePeerStore } from '@/lib/store/peer-store';
-import type { ConnectedPeer, GameState } from '@/lib/store/peer-store';
+import type { GameState } from '@/lib/store/peer-store';
 
 interface PeerMessage {
   type: 'join' | 'leave' | 'peerList' | 'message' | 'hostLeft' | 'gameState';
   id?: string;
   name?: string;
   content?: string;
-  peers?: ConnectedPeer[];
+  peers?: { id: string; name: string }[];
   gameState?: GameState;
   playerName?: string;
 }
 
 type MessageContent = {
-  peers?: ConnectedPeer[];
+  peers?: { id: string; name: string }[];
   gameState?: GameState;
   id?: string;
 };
@@ -57,6 +57,8 @@ export function usePeer(): UsePeerReturn {
     clearStore 
   } = usePeerStore();
 
+  console.log(connectedPeers);
+
   const createPeer = (): Promise<{ peer: Peer; id: string }> => {
     return new Promise((resolve, reject) => {
       const id = generateShortId();
@@ -87,13 +89,17 @@ export function usePeer(): UsePeerReturn {
   };
 
   // Broadcast game state to all peers except current peer
-  const broadcastGameState = (newState: Partial<GameState>) => {
+  const broadcastGameState = async (newState: Partial<GameState>) => {
     const updatedState = { ...gameState, ...newState };
     updateGameState(newState);
     
-    connectedPeers.forEach((p) => {
-      if (p.id !== currentPeer?.id && p.connection) {
-        p.connection.send({
+    // Get latest peers from store
+    const latestPeers = usePeerStore.getState().connectedPeers;
+    const currentPeerInstance = usePeerStore.getState().currentPeer;
+    
+    latestPeers.forEach(async (p) => {
+      if (p.id !== currentPeerInstance?.id && p.connection) {
+        await p.connection.send({
           type: 'gameState',
           gameState: updatedState
         });
@@ -102,10 +108,14 @@ export function usePeer(): UsePeerReturn {
   };
 
   // Broadcast message to all peers except current peer
-  const broadcastMessage = (type: PeerMessage['type'], content?: MessageContent) => {
-    connectedPeers.forEach((p) => {
-      if (p.id !== currentPeer?.id && p.connection) {
-        p.connection.send({
+  const broadcastMessage = async (type: PeerMessage['type'], content?: MessageContent) => {
+    // Get latest peers from store
+    const latestPeers = usePeerStore.getState().connectedPeers;
+    const currentPeerInstance = usePeerStore.getState().currentPeer;
+    
+    latestPeers.forEach(async (p) => {
+      if (p.id !== currentPeerInstance?.id && p.connection) {
+        await p.connection.send({
           type,
           ...content
         });
@@ -113,7 +123,7 @@ export function usePeer(): UsePeerReturn {
     });
   };
 
-  const handleMessage = (peer: Peer, message: PeerMessage) => {
+  const handleMessage = (message: PeerMessage) => {
     switch (message.type) {
       case 'gameState':
         if (message.gameState) {
@@ -125,8 +135,14 @@ export function usePeer(): UsePeerReturn {
         break;
       case 'peerList':
         if (message.peers) {
-          setConnectedPeers(message.peers);
-          console.log('Current connected peers:', connectedPeers);
+          // Convert serializable peers back to ConnectedPeer format for the store
+          const peersForStore = message.peers.map(p => ({
+            id: p.id,
+            name: p.name,
+            connection: undefined // Connection will be undefined for remote peers
+          }));
+          setConnectedPeers(peersForStore);
+          console.log('Current connected peers:', peersForStore);
         }
         break;
     }
@@ -136,21 +152,21 @@ export function usePeer(): UsePeerReturn {
     console.log('Attempting to connect to host:', hostId);
     const connection = peer.connect(hostId);
 
-    connection.on('open', () => {
+    connection.on('open', async () => {
       console.log('Connection opened with host');
       setError(null);
       addPeer({
         id: peer.id,
         name,
       });
-      connection.send({ type: 'join', id: peer.id, name });
+      await connection.send({ type: 'join', id: peer.id, name });
       setIsInGame(true);
     });
 
     connection.on('data', (data: unknown) => {
       const message = data as PeerMessage;
       console.log('Received message from host:', message);
-      handleMessage(peer, message);
+      handleMessage(message);
     });
 
     connection.on('close', () => {
@@ -215,21 +231,28 @@ export function usePeer(): UsePeerReturn {
             connection,
           });
 
-          // Broadcast updated peer list to all peers except current
-          console.log('Broadcasting peer list:', connectedPeers);
-          broadcastMessage('peerList', { peers: connectedPeers });
+          // Get the latest state from the store after adding the peer
+          const latestPeers = usePeerStore.getState().connectedPeers;
+          // Filter out connection objects for serialization
+          const serializablePeers = latestPeers.map(p => ({ id: p.id, name: p.name }));
+          console.log('Broadcasting peer list:', serializablePeers);
+          broadcastMessage('peerList', { peers: serializablePeers });
           
         } else if (message.type === 'leave' && message.id) {
           console.log('Peer leaving:', message.id);
           removePeer(message.id);
-          broadcastMessage('peerList', { peers: connectedPeers });
+          const latestPeers = usePeerStore.getState().connectedPeers;
+          const serializablePeers = latestPeers.map(p => ({ id: p.id, name: p.name }));
+          broadcastMessage('peerList', { peers: serializablePeers });
         }
       });
 
       connection.on('close', () => {
         console.log('Connection closed with peer:', connection.peer);
         removePeer(connection.peer);
-        broadcastMessage('peerList', { peers: connectedPeers });
+        const latestPeers = usePeerStore.getState().connectedPeers;
+        const serializablePeers = latestPeers.map(p => ({ id: p.id, name: p.name }));
+        broadcastMessage('peerList', { peers: serializablePeers });
       });
 
       connection.on('error', (err) => {
