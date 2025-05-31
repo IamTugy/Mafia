@@ -58,8 +58,8 @@ export function Lobby() {
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-gray-700" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-gray-800/10 px-2 text-gray-300">Or join existing game</span>
+            <div className="relative flex items-center justify-center text-xs uppercase">
+              <span className="bg-gray-800 rounded-md self-center py-1 px-2 text-gray-300">Or join existing game</span>
             </div>
           </CardContent>
 

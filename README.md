@@ -1,85 +1,119 @@
-# Mafia game
+# Mafia Game
 
-This application will allow the user to play a game of mafia with their friends, while each user will play with their phone.
+This application allows users to play a game of **Mafia** with their friends, using their phones.
 
-All of the users will sign up to the application with auth0, and will be able to login with their google account.
+All users sign up using **Auth0**, and can log in with their **Google accounts**.
 
-Then they will get in the lobby where they could create a game, or join a game via a code.
+After logging in, users enter a **lobby**, where they can either **create a game** or **join a game using a code**.
 
-# Rules of the game
+---
 
-The game is for exactly 10 players, no more, no less.
+## Game Rules
 
-## Roles:
-- 3 Mafia:
-  - 1 Don (The head of the mafia)
+The game is designed for **exactly 10 players**—no more, no less.
+
+### Roles
+
+- **3 Mafia Members**:
+  - 1 Don (Mafia leader)
   - 2 Mafia
-- 7 Civilians:
+
+- **7 Civilians**:
   - 1 Sheriff
   - 6 Civilians
 
+---
+
 ## Gameplay
-At the beginning of the game each player is assigned with a number, and the numbers are assigned in a random order.
 
-Each player needs to sit in the order of the numbers in a circle.
+At the beginning of the game, each player is assigned a **random number (1–10)**. Players must **sit in a circle** according to their number.
 
-### First night
-Each player is assigned with a role, and the roles are assigned in a random order.
-#### Phase 1:
-- All the players need to cover their eyes, one by one from player 1 to player 10 they will discover their role.
+### First Night
 
-#### Phase 2:
-- All 3 mafia players will wake up, and will be able to see the roles of the other mafia players.
-- The don will choose 3 players to kill in order for the next 3 nights.
-- The mafia players will then go back to sleep.
+Each player is assigned a **random role**.
 
-### The first day
-- All the players will wake up
-- In the first day everyone will get 1 minute to speak one after the other.
-- In the end of the first day no votes are casted.
+#### Phase 1: Role Reveal
 
-### Night
-All players will cover their eyes, and wait for their turn.
-#### Phase 1:
-- We count from 1 to 10, when the mafia decides they want to kill the player with the called number, they will click the screen.
-- If there is no consensus, the game will continue and no player will be killed.
+- All players cover their eyes.
+- One by one, from player 1 to 10, each uncovers their eyes briefly to discover their role.
 
-#### Phase 2:
-- The sheriff will wake up, and will be able to pick a player to investigate.
-- if that player is a mafia, or a don, the sheriff will be able to see the role of the player.
+#### Phase 2: Mafia Wake Up
 
-#### Phase 3:
-- The Don will wake up, and will be able to pick a player to investigate.
-- the don will be able to see if that player is the sheriff, or a civilian.
+- All 3 mafia members open their eyes and identify each other.
+- The **Don** pre-selects **three players to kill**—one per night for the next three nights.
+- The mafia then "go back to sleep."
 
-### Day
-All the players will wake up
+---
 
-#### Phase 1:
-- The game will announce the number of the player that was killed the previous night if there was a kill.
-- Each day will start with the player that has the same number as the day.
-- one by one the players will get 1 minute to speak one after the other.
-- In each turn a person speaks he could vote for a player to blame as a mafia.
+### First Day
 
-#### Phase 2:
-- All players that were voted as a mafia will be get 30 seconds to defend themselves.
-- The order of the players to speak is the same as the order that they were voted as a mafia. (if player 5 was voted as a mafia before player 1, then player 5 will speak first)
+- All players wake up.
+- Each player has **1 minute to speak**, one after the other.
+- **No votes** are cast on the first day.
 
-#### Phase 3:
-- Each of the players will be able to vote for the player that they think is the mafia.
-- In case of a tie, another vote will be casted, but this time on the player that had the most votes.
-- In case of another tie, no player will be removed from the game.
+---
 
-- the player that was voted as a mafia will be removed from the game.
+### Night Phase
 
-## Winning conditions
-- In case of a tie between the number of mafia players, and the rest of the players, the game will end and the mafia will win.
-- In case that all mafia players are removed from the game, the civilians will win.
+All players cover their eyes and wait for their turn.
 
+#### Phase 1: Mafia Kill
 
-# Technical details
+- The game counts aloud from 1 to 10.
+- If the mafia agrees to kill the player whose number is called, they tap the screen during that number.
+- If there is no consensus, no one is killed.
 
-- There will be 2 modes
-  - One that allows a host to run the game, he will get a different screen than the other players. and there will be 11 people overall.
-  He will have an options to give penalties and to play with the game's settings.
-  - The second mode is without a host, and no penalties will be available ATM.
+#### Phase 2: Sheriff Investigation
+
+- The **Sheriff** opens their eyes and selects one player to investigate.
+- If the player is a Mafia member or the Don, their role is revealed to the Sheriff.
+
+#### Phase 3: Don Investigation
+
+- The **Don** wakes up and selects one player to investigate.
+- The Don learns whether the player is the **Sheriff** or a **Civilian**.
+
+---
+
+### Day Phase
+
+All players wake up.
+
+#### Phase 1: Announcements and Speeches
+
+- If a player was killed the previous night, their number is announced.
+- The day begins with the player whose number matches the day number.
+- Each player speaks for 1 minute and may accuse another player of being Mafia.
+
+#### Phase 2: Defense
+
+- Players who were accused get 30 seconds to defend themselves.
+- They speak in the order in which they were accused.
+
+#### Phase 3: Voting
+
+- All players vote for the person they believe is a Mafia member.
+- In the case of a tie, a **second vote** is held between the tied players.
+- If the second vote is also a tie, **no one is eliminated**.
+- The player who receives the most votes is removed from the game.
+
+---
+
+## Winning Conditions
+
+- If the number of **Mafia members equals** the number of remaining **Civilians**, the **Mafia win**.
+- If **all Mafia members are eliminated**, the **Civilians win**.
+
+---
+
+## Technical Details
+
+There are **two modes** of gameplay:
+
+### 1. Host Mode
+- An **11th player** acts as the **Host** with a special interface.
+- The Host can apply **penalties** and change **game settings**.
+
+### 2. Hostless Mode
+- No Host is present.
+- Penalties are **not supported** in this mode (for now).
