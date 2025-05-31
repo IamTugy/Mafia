@@ -47,23 +47,22 @@ export function usePeer(): UsePeerReturn {
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isWaiting, setIsWaiting] = useState(false);
-  const { 
-    hostId, 
-    currentPeer, 
-    setHostId, 
-    setCurrentPeer, 
-    addPeer, 
-    removePeer, 
+  const {
+    hostId,
+    currentPeer,
+    setHostId,
+    setCurrentPeer,
+    addPeer,
+    removePeer,
     setConnectedPeers,
     setWaitingPeers,
     connectedPeers,
-    waitingPeers,
     updateGameState,
     gameState,
     clearStore,
     moveToActiveList,
     moveToWaitingList,
-    isHost
+    isHost,
   } = usePeerStore();
 
   console.log(connectedPeers);
@@ -72,7 +71,7 @@ export function usePeer(): UsePeerReturn {
     return new Promise((resolve, reject) => {
       const id = generateShortId();
       console.log('Generated peer ID:', id);
-      
+
       const peer = new Peer(id, {
         host: '0.peerjs.com',
         port: 443,
@@ -88,9 +87,10 @@ export function usePeer(): UsePeerReturn {
 
       peer.on('error', (err) => {
         console.error('Peer creation error:', err);
-        const errorMessage = err.type === 'peer-unavailable' 
-          ? 'Game code not found - please check the code and try again'
-          : 'Failed to connect to game - please try again';
+        const errorMessage =
+          err.type === 'peer-unavailable'
+            ? 'Game code not found - please check the code and try again'
+            : 'Failed to connect to game - please try again';
         setError(errorMessage);
         reject(err);
       });
@@ -101,18 +101,18 @@ export function usePeer(): UsePeerReturn {
   const broadcastGameState = async (newState: Partial<GameState>) => {
     const updatedState = { ...gameState, ...newState };
     updateGameState(newState);
-    
+
     // Get latest peers from store
     const latestActivePeers = usePeerStore.getState().connectedPeers;
     const latestWaitingPeers = usePeerStore.getState().waitingPeers;
     const currentPeerInstance = usePeerStore.getState().currentPeer;
-    
+
     // Broadcast to both active and waiting peers
     [...latestActivePeers, ...latestWaitingPeers].forEach(async (p) => {
       if (p.id !== currentPeerInstance?.id && p.connection) {
         await p.connection.send({
           type: 'gameState',
-          gameState: updatedState
+          gameState: updatedState,
         });
       }
     });
@@ -124,13 +124,13 @@ export function usePeer(): UsePeerReturn {
     const latestActivePeers = usePeerStore.getState().connectedPeers;
     const latestWaitingPeers = usePeerStore.getState().waitingPeers;
     const currentPeerInstance = usePeerStore.getState().currentPeer;
-    
+
     // Broadcast to both active and waiting peers
     [...latestActivePeers, ...latestWaitingPeers].forEach(async (p) => {
       if (p.id !== currentPeerInstance?.id && p.connection) {
         await p.connection.send({
           type,
-          ...content
+          ...content,
         });
       }
     });
@@ -149,28 +149,32 @@ export function usePeer(): UsePeerReturn {
       case 'peerList':
         if (message.peers) {
           // Split peers into active and waiting
-          const activePeers = message.peers.filter(p => !p.isWaiting).map(p => ({
-            id: p.id,
-            name: p.name,
-            connection: undefined
-          }));
-          const waitingPeersList = message.peers.filter(p => p.isWaiting).map(p => ({
-            id: p.id,
-            name: p.name,
-            connection: undefined,
-            isWaiting: true
-          }));
-          
+          const activePeers = message.peers
+            .filter((p) => !p.isWaiting)
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              connection: undefined,
+            }));
+          const waitingPeersList = message.peers
+            .filter((p) => p.isWaiting)
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              connection: undefined,
+              isWaiting: true,
+            }));
+
           setConnectedPeers(activePeers);
           setWaitingPeers(waitingPeersList);
-          
+
           // Update waiting status for current peer
           const currentPeerId = currentPeer?.id;
           if (currentPeerId) {
-            const isInWaitingList = waitingPeersList.some(p => p.id === currentPeerId);
+            const isInWaitingList = waitingPeersList.some((p) => p.id === currentPeerId);
             setIsWaiting(isInWaitingList);
           }
-          
+
           console.log('Current active peers:', activePeers);
           console.log('Current waiting peers:', waitingPeersList);
         }
@@ -232,17 +236,17 @@ export function usePeer(): UsePeerReturn {
 
   const setupHost = (peer: Peer, playerName: string): void => {
     console.log('Setting up host with peer ID:', peer.id);
-    
+
     // Add the host itself to the connected peers list
     addPeer({
       id: peer.id,
       name: playerName,
-      connection: undefined
+      connection: undefined,
     });
 
     peer.on('connection', (connection: DataConnection) => {
       console.log('New connection received from:', connection.peer);
-      
+
       connection.on('open', () => {
         console.log('Connection opened with peer:', connection.peer);
       });
@@ -250,10 +254,10 @@ export function usePeer(): UsePeerReturn {
       connection.on('data', (data: unknown) => {
         const message = data as PeerMessage;
         console.log('Received message from peer:', message);
-        
+
         if (message.type === 'join' && message.id && message.name) {
           console.log('Adding peer to store:', message.id, message.name);
-          
+
           // Add the new peer to the store (will be added to waiting list if game is full)
           addPeer({
             id: message.id,
@@ -264,28 +268,27 @@ export function usePeer(): UsePeerReturn {
           // Get the latest state from the store after adding the peer
           const latestActivePeers = usePeerStore.getState().connectedPeers;
           const latestWaitingPeers = usePeerStore.getState().waitingPeers;
-          
+
           // Combine active and waiting peers for broadcasting
           const allPeers = [
-            ...latestActivePeers.map(p => ({ id: p.id, name: p.name })),
-            ...latestWaitingPeers.map(p => ({ id: p.id, name: p.name, isWaiting: true }))
+            ...latestActivePeers.map((p) => ({ id: p.id, name: p.name })),
+            ...latestWaitingPeers.map((p) => ({ id: p.id, name: p.name, isWaiting: true })),
           ];
-          
+
           console.log('Broadcasting peer list:', allPeers);
           broadcastMessage('peerList', { peers: allPeers });
-          
         } else if (message.type === 'leave' && message.id) {
           console.log('Peer leaving:', message.id);
           removePeer(message.id);
           const latestActivePeers = usePeerStore.getState().connectedPeers;
           const latestWaitingPeers = usePeerStore.getState().waitingPeers;
-          
+
           // Combine active and waiting peers for broadcasting
           const allPeers = [
-            ...latestActivePeers.map(p => ({ id: p.id, name: p.name })),
-            ...latestWaitingPeers.map(p => ({ id: p.id, name: p.name, isWaiting: true }))
+            ...latestActivePeers.map((p) => ({ id: p.id, name: p.name })),
+            ...latestWaitingPeers.map((p) => ({ id: p.id, name: p.name, isWaiting: true })),
           ];
-          
+
           broadcastMessage('peerList', { peers: allPeers });
         }
       });
@@ -295,13 +298,13 @@ export function usePeer(): UsePeerReturn {
         removePeer(connection.peer);
         const latestActivePeers = usePeerStore.getState().connectedPeers;
         const latestWaitingPeers = usePeerStore.getState().waitingPeers;
-        
+
         // Combine active and waiting peers for broadcasting
         const allPeers = [
-          ...latestActivePeers.map(p => ({ id: p.id, name: p.name })),
-          ...latestWaitingPeers.map(p => ({ id: p.id, name: p.name, isWaiting: true }))
+          ...latestActivePeers.map((p) => ({ id: p.id, name: p.name })),
+          ...latestWaitingPeers.map((p) => ({ id: p.id, name: p.name, isWaiting: true })),
         ];
-        
+
         broadcastMessage('peerList', { peers: allPeers });
       });
 
@@ -326,9 +329,11 @@ export function usePeer(): UsePeerReturn {
 
     const connections = peer.connections;
     if (connections) {
-      Object.values(connections).flat().forEach((connection: DataConnection) => {
-        connection.close();
-      });
+      Object.values(connections)
+        .flat()
+        .forEach((connection: DataConnection) => {
+          connection.close();
+        });
     }
 
     peer.destroy();
@@ -336,13 +341,13 @@ export function usePeer(): UsePeerReturn {
 
   const createGame = async (playerName: string): Promise<void> => {
     if (!playerName || isCreating) return;
-    
+
     setIsCreating(true);
     try {
       console.log('Creating new game...');
       const { peer, id } = await createPeer();
       console.log('Peer created with ID:', id);
-      
+
       setCurrentPeer(peer);
       setHostId(id);
       setupHost(peer, playerName);
@@ -356,15 +361,15 @@ export function usePeer(): UsePeerReturn {
 
   const joinGame = async (gameId: string, playerName: string): Promise<void> => {
     if (!gameId || !playerName || isJoining) return;
-    
+
     setIsJoining(true);
     setError(null);
-    
+
     try {
       console.log('Joining game with ID:', gameId);
       const { peer } = await createPeer();
       console.log('Peer created, connecting to host:', gameId);
-      
+
       setCurrentPeer(peer);
       setHostId(gameId);
       connectToPeer(peer, gameId, playerName);
@@ -394,17 +399,17 @@ export function usePeer(): UsePeerReturn {
   const movePlayerToGame = (peerId: string) => {
     if (isHost()) {
       moveToActiveList(peerId);
-      
+
       // Get the latest state from the store
       const latestActivePeers = usePeerStore.getState().connectedPeers;
       const latestWaitingPeers = usePeerStore.getState().waitingPeers;
-      
+
       // Combine active and waiting peers for broadcasting
       const allPeers = [
-        ...latestActivePeers.map(p => ({ id: p.id, name: p.name })),
-        ...latestWaitingPeers.map(p => ({ id: p.id, name: p.name, isWaiting: true }))
+        ...latestActivePeers.map((p) => ({ id: p.id, name: p.name })),
+        ...latestWaitingPeers.map((p) => ({ id: p.id, name: p.name, isWaiting: true })),
       ];
-      
+
       broadcastMessage('peerList', { peers: allPeers });
     }
   };
@@ -412,17 +417,17 @@ export function usePeer(): UsePeerReturn {
   const movePlayerToWaiting = (peerId: string) => {
     if (isHost()) {
       moveToWaitingList(peerId);
-      
+
       // Get the latest state from the store
       const latestActivePeers = usePeerStore.getState().connectedPeers;
       const latestWaitingPeers = usePeerStore.getState().waitingPeers;
-      
+
       // Combine active and waiting peers for broadcasting
       const allPeers = [
-        ...latestActivePeers.map(p => ({ id: p.id, name: p.name })),
-        ...latestWaitingPeers.map(p => ({ id: p.id, name: p.name, isWaiting: true }))
+        ...latestActivePeers.map((p) => ({ id: p.id, name: p.name })),
+        ...latestWaitingPeers.map((p) => ({ id: p.id, name: p.name, isWaiting: true })),
       ];
-      
+
       broadcastMessage('peerList', { peers: allPeers });
     }
   };
@@ -440,6 +445,6 @@ export function usePeer(): UsePeerReturn {
     leaveGame,
     broadcastGameState,
     movePlayerToGame,
-    movePlayerToWaiting
+    movePlayerToWaiting,
   };
-} 
+}

@@ -41,7 +41,7 @@ const INITIAL_GAME_STATE: GameState = {
 };
 
 export const usePeerStore = create<PeerStore>((set, get) => ({
-  hostId: "",
+  hostId: '',
   currentPeer: null,
   connectedPeers: [],
   waitingPeers: [],
@@ -71,37 +71,39 @@ export const usePeerStore = create<PeerStore>((set, get) => ({
   setWaitingPeers: (peers: ConnectedPeer[]) => set({ waitingPeers: peers }),
   moveToWaitingList: (peerId: string) => {
     set((state) => {
-      const peer = state.connectedPeers.find(p => p.id === peerId);
+      const peer = state.connectedPeers.find((p) => p.id === peerId);
       if (!peer) return state;
-      
+
       return {
-        connectedPeers: state.connectedPeers.filter(p => p.id !== peerId),
+        connectedPeers: state.connectedPeers.filter((p) => p.id !== peerId),
         waitingPeers: [...state.waitingPeers, { ...peer, isWaiting: true }],
       };
     });
   },
   moveToActiveList: (peerId: string) => {
     set((state) => {
-      const peer = state.waitingPeers.find(p => p.id === peerId);
+      const peer = state.waitingPeers.find((p) => p.id === peerId);
       if (!peer) return state;
-      
+
       return {
-        waitingPeers: state.waitingPeers.filter(p => p.id !== peerId),
+        waitingPeers: state.waitingPeers.filter((p) => p.id !== peerId),
         connectedPeers: [...state.connectedPeers, { ...peer, isWaiting: false }],
       };
     });
   },
-  clearStore: () => set({
-    hostId: "",
-    currentPeer: null,
-    connectedPeers: [],
-    waitingPeers: [],
-    gameState: INITIAL_GAME_STATE,
-  }),
+  clearStore: () =>
+    set({
+      hostId: '',
+      currentPeer: null,
+      connectedPeers: [],
+      waitingPeers: [],
+      gameState: INITIAL_GAME_STATE,
+    }),
   isHost: () => get().currentPeer?.id === get().hostId,
-  updateGameState: (newState: Partial<GameState>) => set((state) => ({
-    gameState: { ...state.gameState, ...newState }
-  })),
+  updateGameState: (newState: Partial<GameState>) =>
+    set((state) => ({
+      gameState: { ...state.gameState, ...newState },
+    })),
   getActivePlayers: () => get().connectedPeers,
   getWaitingPlayers: () => get().waitingPeers,
 }));

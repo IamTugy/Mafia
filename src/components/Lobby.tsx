@@ -5,8 +5,8 @@ import { usePeer } from "@/lib/hooks/use-peer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { LobbyCodeInput } from "@/components/lobby/lobby-code-input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/Card";
-import { GameRoom } from "../game-room";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/Card";
+import { GameRoom } from "./game-room";
 
 export function Lobby() {
   const [playerName, setPlayerName] = useState("");
@@ -28,9 +28,9 @@ export function Lobby() {
 
   return (
     <div
-      className="h-screen w-screen flex items-center justify-center p-4 bg-cover bg-center overflow-hidden bg-[url('/src/assets/game-lobby-background.png')]"
+      className="size-full flex items-center justify-center p-4 bg-cover bg-center overflow-scroll bg-[url('/src/assets/game-lobby-background.png')]"
     >
-      <Card className="w-full max-w-md bg-gray-800/10 border-gray-700 backdrop-blur-md shadow-xl">
+      <Card className="w-full max-w-md max-h-3/4 bg-gray-800/10 border-gray-700 backdrop-blur-md shadow-xl overflow-scroll">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-white">Game Lobby</CardTitle>
           <CardDescription className="text-gray-300">
