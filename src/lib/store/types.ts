@@ -7,23 +7,23 @@ export type Role = z.infer<typeof RoleSchema>;
 
 export const GamePhaseSchema = z.enum([
   // Waiting stage
-  'waiting',          // Waiting for players to join
-  
+  'waiting', // Waiting for players to join
+
   // Night stage
-  'night.roleReveal',  // First night - players discover their roles
-  'night.mafiaSetup',  // First night - mafia meet and don chooses targets
-  'night.mafiaKill',   // Night - mafia choose who to kill
-  'night.sheriffCheck',// Night - sheriff investigates
-  'night.donCheck',    // Night - don investigates
-  
+  'night.roleReveal', // First night - players discover their roles
+  'night.mafiaSetup', // First night - mafia meet and don chooses targets
+  'night.mafiaKill', // Night - mafia choose who to kill
+  'night.sheriffCheck', // Night - sheriff investigates
+  'night.donCheck', // Night - don investigates
+
   // Day stage
-  'day.start',         // Day - announce night results
-  'day.discussion',    // Day - players discuss and can accuse others during their turn
-  'day.defense',       // Day - accused players defend
-  'day.finalVote',     // Day - final vote
-  
+  'day.start', // Day - announce night results
+  'day.discussion', // Day - players discuss and can accuse others during their turn
+  'day.defense', // Day - accused players defend
+  'day.finalVote', // Day - final vote
+
   // End stage
-  'ended'             // Game ended
+  'ended', // Game ended
 ]);
 export type GamePhase = z.infer<typeof GamePhaseSchema>;
 
@@ -53,7 +53,14 @@ export type PlayerData = z.infer<typeof PlayerDataSchema>;
 
 // Peer message schemas
 export const PeerMessageTypeSchema = z.enum([
-  'join', 'leave', 'peerList', 'message', 'hostLeft', 'gameState', 'waitingList', 'playerData'
+  'join',
+  'leave',
+  'peerList',
+  'message',
+  'hostLeft',
+  'gameState',
+  'waitingList',
+  'playerData',
 ]);
 
 export const PeerMessageSchema = z.object({
@@ -61,11 +68,15 @@ export const PeerMessageSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   content: z.string().optional(),
-  peers: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    status: z.enum(['waiting', 'inGame'])
-  })).optional(),
+  peers: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        status: z.enum(['waiting', 'inGame']),
+      })
+    )
+    .optional(),
   gameState: GameStateSchema.optional(),
   playerName: z.string().optional(),
   playerData: PlayerDataSchema.optional(),
@@ -77,11 +88,15 @@ export const MessageContentSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   content: z.string().optional(),
-  peers: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    status: z.enum(['waiting', 'inGame'])
-  })).optional(),
+  peers: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        status: z.enum(['waiting', 'inGame']),
+      })
+    )
+    .optional(),
   gameState: GameStateSchema.optional(),
   playerName: z.string().optional(),
   playerData: PlayerDataSchema.optional(),
@@ -146,4 +161,3 @@ export const validatePlayersList = (data: unknown): PlayerListItem[] | null => {
   }
   return result.data;
 };
-

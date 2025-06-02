@@ -2,8 +2,8 @@ import { useClientStore } from '@/lib/store/client-store';
 import { Card } from '@/components/ui/Card';
 
 export function FinalVote() {
-  const { 
-    gameState: {day}
+  const {
+    gameState: { day },
   } = useClientStore();
 
   return (
@@ -15,4 +15,4 @@ export function FinalVote() {
       </Card>
     </div>
   );
-} 
+}

@@ -53,7 +53,7 @@ export function Game() {
       default:
         return (
           <div className="flex h-full items-center justify-center">
-            <p className="text-lg text-muted-foreground">Unknown game phase</p>
+            <p className="text-muted-foreground text-lg">Unknown game phase</p>
           </div>
         );
     }
@@ -62,22 +62,22 @@ export function Game() {
   return (
     <div className="container mx-auto flex h-full max-w-4xl flex-col gap-4 p-4">
       {/* Game stage indicator */}
-      <div className="flex items-center justify-between rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+      <div className="bg-card text-card-foreground flex items-center justify-between rounded-lg border p-4 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Stage:</span>
+          <span className="text-muted-foreground text-sm font-medium">Stage:</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">Phase:</span>
-          <span className="font-semibold capitalize">{gameState.phase.split('.')[1] || gameState.phase}</span>
+          <span className="text-muted-foreground text-sm font-medium">Phase:</span>
+          <span className="font-semibold capitalize">
+            {gameState.phase.split('.')[1] || gameState.phase}
+          </span>
         </div>
       </div>
 
       {/* Main game content */}
-      <div className={cn(
-        "flex-1 rounded-lg border bg-card p-4 text-card-foreground shadow-sm",
-      )}>
+      <div className={cn('bg-card text-card-foreground flex-1 rounded-lg border p-4 shadow-sm')}>
         {getPhaseComponent()}
       </div>
     </div>
   );
-} 
+}

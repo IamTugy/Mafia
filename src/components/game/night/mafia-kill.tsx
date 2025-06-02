@@ -10,4 +10,4 @@ export function MafiaKill() {
       </Card>
     </div>
   );
-} 
+}

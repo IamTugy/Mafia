@@ -17,14 +17,8 @@ interface UseClientPeerReturn {
 }
 
 export function useClientPeer(): UseClientPeerReturn {
-  const {
-    setPlayersList,
-    setCurrentPlayerData,
-    setGameState,
-    setHost,
-    clearStore,
-    host,
-  } = useClientStore();
+  const { setPlayersList, setCurrentPlayerData, setGameState, setHost, clearStore, host } =
+    useClientStore();
 
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,10 +63,10 @@ export function useClientPeer(): UseClientPeerReturn {
           if (validatedPlayersList) {
             setPlayersList(validatedPlayersList);
             console.log('Updated players list:', validatedPlayersList);
-            
+
             // Log room status information for debugging
-            const waitingCount = validatedPlayersList.filter(p => p.status === 'waiting').length;
-            const inGameCount = validatedPlayersList.filter(p => p.status === 'inGame').length;
+            const waitingCount = validatedPlayersList.filter((p) => p.status === 'waiting').length;
+            const inGameCount = validatedPlayersList.filter((p) => p.status === 'inGame').length;
             console.log(`Room status - waiting: ${waitingCount}, in-game: ${inGameCount}`);
           }
         }
@@ -106,7 +100,7 @@ export function useClientPeer(): UseClientPeerReturn {
   const connectToHost = async (hostId: string, name: string): Promise<void> => {
     setConnecting(true);
     setError(null); // Clear any previous errors
-    
+
     if (host?.connection?.open) {
       console.log('Already connected to a host');
       setError('Already connected to a host');
@@ -116,12 +110,12 @@ export function useClientPeer(): UseClientPeerReturn {
 
     let peer: Peer;
     let connectionTimeout: NodeJS.Timeout | undefined;
-    
+
     try {
       console.log('Creating client peer to connect to host:', hostId);
       const result = await createPeer();
       peer = result.peer;
-      
+
       // Add error handler for the peer itself
       peer.on('error', (err) => {
         console.error('Peer error:', err);
@@ -130,17 +124,18 @@ export function useClientPeer(): UseClientPeerReturn {
         setConnecting(false);
         clearStore();
       });
-      
     } catch (error) {
       console.error('Failed to create peer:', error);
-      setError('Failed to create peer connection. Please check your internet connection and try again.');
+      setError(
+        'Failed to create peer connection. Please check your internet connection and try again.'
+      );
       setConnecting(false);
       return;
     }
 
     try {
       const connection = peer.connect(hostId);
-      
+
       // Add timeout for connection (10 seconds)
       connectionTimeout = setTimeout(() => {
         if (!connection.open) {
@@ -150,7 +145,7 @@ export function useClientPeer(): UseClientPeerReturn {
           if (peer) peer.destroy();
         }
       }, 10000);
-      
+
       setHost({
         id: hostId,
         connection,
@@ -161,11 +156,13 @@ export function useClientPeer(): UseClientPeerReturn {
         if (connectionTimeout) clearTimeout(connectionTimeout);
         setError(null); // Clear error on successful connection
         setConnecting(false); // Set connecting to false on success
-        await connection.send(serializeData({ 
-          type: 'join', 
-          id: peer.id, 
-          name 
-        }));
+        await connection.send(
+          serializeData({
+            type: 'join',
+            id: peer.id,
+            name,
+          })
+        );
       });
 
       connection.on('data', (data: unknown) => {
@@ -184,11 +181,12 @@ export function useClientPeer(): UseClientPeerReturn {
       connection.on('error', (err) => {
         console.error('Connection error:', err);
         if (connectionTimeout) clearTimeout(connectionTimeout);
-        setError(`Failed to connect to host: ${err.message || 'Please check the game code and try again'}`);
+        setError(
+          `Failed to connect to host: ${err.message || 'Please check the game code and try again'}`
+        );
         setConnecting(false);
         clearStore();
       });
-
     } catch (error) {
       console.error('Failed to connect to host:', error);
       if (connectionTimeout) clearTimeout(connectionTimeout);
@@ -224,4 +222,4 @@ export function useClientPeer(): UseClientPeerReturn {
       clearStore();
     },
   };
-} 
+}

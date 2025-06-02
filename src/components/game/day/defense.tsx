@@ -2,8 +2,8 @@ import { Card } from '@/components/ui/Card';
 import { useClientStore } from '@/lib/store/client-store';
 
 export function Defense() {
-  const { 
-    gameState: {day}
+  const {
+    gameState: { day },
   } = useClientStore();
 
   return (
@@ -15,4 +15,4 @@ export function Defense() {
       </Card>
     </div>
   );
-} 
+}

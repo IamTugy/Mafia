@@ -10,13 +10,13 @@ interface ClientState {
 
 interface ClientStore extends ClientState {
   setPlayersList: (players: PlayerListItem[]) => void;
-  
+
   setCurrentPlayerData: (data: PlayerData) => void;
-  
+
   setGameState: (state: GameState) => void;
-  
+
   setHost: (host: HostInfo) => void;
-  
+
   // Clear store
   clearStore: () => void;
 }
@@ -39,10 +39,10 @@ export const useClientStore = create<ClientStore>((set) => ({
 
   // Current player data actions
   setCurrentPlayerData: (data: PlayerData) => set({ currentPlayerData: data }),
-  
+
   // Game state actions
   setGameState: (state: GameState) => set({ gameState: state }),
-  
+
   // Host actions
   setHost: (host: HostInfo) => set({ host }),
 

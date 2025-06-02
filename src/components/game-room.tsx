@@ -14,35 +14,24 @@ interface GameRoomProps {
 
 export function GameRoom({ onLeave, hostId }: GameRoomProps) {
   // Server store - for host
-  const { 
-    gameState, 
-    host: serverHost 
-  } = useServerStore();
-  
+  const { gameState, host: serverHost } = useServerStore();
+
   // Client store - for client data
-  const { 
-    playersList, 
-    currentPlayerData, 
-    gameState: clientGameState 
-  } = useClientStore();
-  
+  const { playersList, currentPlayerData, gameState: clientGameState } = useClientStore();
+
   // Server peer - for host actions
-  const { 
-    startGame, 
-    moveClientToGame, 
-    moveClientToWaiting 
-  } = useServerPeer();
+  const { startGame, moveClientToGame, moveClientToWaiting } = useServerPeer();
 
   // Determine if this is a host or client
   const isHost = serverHost.isActive;
-  
+
   // Use appropriate data based on host/client role
   const phase = isHost ? gameState.phase : clientGameState.phase;
-  
+
   // Filter players by status
-  const connectedPeers = playersList.filter(p => p.status === 'inGame');
-  const waitingPeers = playersList.filter(p => p.status === 'waiting');
-  
+  const connectedPeers = playersList.filter((p) => p.status === 'inGame');
+  const waitingPeers = playersList.filter((p) => p.status === 'waiting');
+
   // Check if current player is waiting
   const isWaiting = currentPlayerData?.status === 'waiting';
 
@@ -50,7 +39,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
   console.log('GameRoom render:', {
     connectedPeersCount: connectedPeers.length,
     phase,
-    isHost: isHost
+    isHost: isHost,
   });
 
   // Add debug logging for button state
@@ -60,7 +49,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
     maxPlayers: MAX_PLAYERS,
     currentPhase: phase,
     isDisabled: isButtonDisabled,
-    isHost: isHost
+    isHost: isHost,
   });
 
   const handleStartGame = () => {
@@ -70,7 +59,9 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
     }
 
     if (connectedPeers.length < MAX_PLAYERS) {
-      console.warn(`Cannot start game: need ${MAX_PLAYERS} players, but only ${connectedPeers.length} connected`);
+      console.warn(
+        `Cannot start game: need ${MAX_PLAYERS} players, but only ${connectedPeers.length} connected`
+      );
       return;
     }
 
@@ -82,14 +73,14 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
     console.log('Host starting game...', {
       connectedPeersCount: connectedPeers.length,
       phase,
-      isHost: isHost
+      isHost: isHost,
     });
-    
+
     try {
       // Start the game
       console.log('Starting game...');
       startGame();
-      
+
       console.log('Game start sequence completed');
     } catch (error) {
       console.error('Error starting game:', error);
@@ -156,8 +147,8 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                         )}
                         size="lg"
                       >
-                        {connectedPeers.length < MAX_PLAYERS 
-                          ? `Waiting for Players (${connectedPeers.length}/${MAX_PLAYERS})` 
+                        {connectedPeers.length < MAX_PLAYERS
+                          ? `Waiting for Players (${connectedPeers.length}/${MAX_PLAYERS})`
                           : 'Start Game'}
                       </Button>
                     </div>

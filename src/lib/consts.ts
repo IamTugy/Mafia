@@ -13,4 +13,4 @@ export const ROLES = [
   'civilian',
   'civilian',
   'civilian',
-] as const; 
+] as const;

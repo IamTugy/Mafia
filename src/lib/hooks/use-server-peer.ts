@@ -37,22 +37,22 @@ export function useServerPeer(): UseServerPeerReturn {
 
   const broadcastPlayerData = useCallback(() => {
     if (!host.isActive) return;
-    
+
     clients.forEach(async (client) => {
       if (client.connection && client.connection.open) {
-        const playersList = clients.map(c => ({
+        const playersList = clients.map((c) => ({
           id: c.playerData.id,
           name: c.playerData.name,
           index: c.playerData.index,
           status: c.playerData.status,
         }));
 
-        const message = serializeData({ 
-          type: 'playerData', 
+        const message = serializeData({
+          type: 'playerData',
           playerData: client.playerData,
-          playersList 
+          playersList,
         });
-        
+
         try {
           client.connection.send(message);
         } catch (error) {
@@ -65,11 +65,11 @@ export function useServerPeer(): UseServerPeerReturn {
   const setupHost = useCallback(async () => {
     console.log('Creating new game as host...');
 
-    const { peer, id } = await createPeer(true);  
+    const { peer, id } = await createPeer(true);
 
-    console.log('Host peer created with ID:', id); 
+    console.log('Host peer created with ID:', id);
 
-    setHost({ id, peer });   
+    setHost({ id, peer });
 
     peer.on('connection', (connection: DataConnection) => {
       console.log('New connection received from:', connection.peer);
@@ -89,7 +89,7 @@ export function useServerPeer(): UseServerPeerReturn {
           case 'join':
             if (message.id && message.name) {
               console.log('Adding client to server store:', message.id, message.name);
-              
+
               addClient({
                 playerData: {
                   id: message.id,
@@ -98,7 +98,7 @@ export function useServerPeer(): UseServerPeerReturn {
                 },
                 connection,
               });
-              
+
               // Send updated data to all clients
               broadcastPlayerData();
             }
@@ -144,12 +144,12 @@ export function useServerPeer(): UseServerPeerReturn {
 
   const broadcastGameState = () => {
     if (!host.isActive) return;
-    
+
     clients.forEach(async (client) => {
       if (client.connection && client.connection.open) {
-        const message = serializeData({ 
-          type: 'gameState', 
-          gameState 
+        const message = serializeData({
+          type: 'gameState',
+          gameState,
         });
         try {
           client.connection.send(message);
@@ -210,4 +210,4 @@ export function useServerPeer(): UseServerPeerReturn {
     createGame,
     leaveGame: storeLeaveGame,
   };
-} 
+}

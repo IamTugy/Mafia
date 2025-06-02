@@ -1,10 +1,6 @@
 import Peer from 'peerjs';
 import type { DataConnection } from 'peerjs';
-import { 
-  PeerMessageSchema, 
-  type PeerMessage,
-  type MessageContent 
-} from '@/lib/store/types';
+import { PeerMessageSchema, type PeerMessage, type MessageContent } from '@/lib/store/types';
 
 // Zod-based serialization function
 export const serializeData = (data: unknown): unknown => {

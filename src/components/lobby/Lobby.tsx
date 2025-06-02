@@ -13,7 +13,13 @@ export function Lobby() {
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
   const { host, createGame: createGameServer, leaveGame: leaveGameServer } = useServerPeer();
-  const { connectToHost, isConnected, isConnecting, error, leaveGame: leaveGameClient } = useClientPeer();
+  const {
+    connectToHost,
+    isConnected,
+    isConnecting,
+    error,
+    leaveGame: leaveGameClient,
+  } = useClientPeer();
 
   const createGame = () => {
     if (!host.id) {
@@ -22,12 +28,12 @@ export function Lobby() {
     }
     connectToHost(host.id, playerName);
     createGameServer();
-  }
+  };
 
   const leaveGame = () => {
     leaveGameServer();
     leaveGameClient();
-  }
+  };
 
   if (isConnected && host.id) {
     return <GameRoom onLeave={leaveGame} hostId={host.id} />;
@@ -74,7 +80,9 @@ export function Lobby() {
               <span className="w-full border-t border-gray-700" />
             </div>
             <div className="relative flex items-center justify-center text-xs uppercase">
-              <span className="bg-gray-800 rounded-md self-center py-1 px-2 text-gray-300">Or join existing game</span>
+              <span className="self-center rounded-md bg-gray-800 px-2 py-1 text-gray-300">
+                Or join existing game
+              </span>
             </div>
           </CardContent>
 

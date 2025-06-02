@@ -1,7 +1,6 @@
 import { Card } from '@/components/ui/Card';
 
 export function SheriffCheck() {
-
   return (
     <div className="flex h-full flex-col items-center justify-center gap-8">
       <Card className="w-full max-w-md p-6">
@@ -11,4 +10,4 @@ export function SheriffCheck() {
       </Card>
     </div>
   );
-} 
+}
