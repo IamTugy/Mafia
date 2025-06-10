@@ -1,7 +1,7 @@
 import Peer from 'peerjs';
 import { useClientStore } from '@/lib/store/client-store';
-import { validateGameState, validatePlayerData, validatePlayersList } from '@/lib/store/types';
-import { usePeer, serializeData, parseMessage, type MessageContent } from './use-peer';
+import { validateGameState, validatePlayerData, validatePlayersList, type MessageContent } from '@/lib/store/types';
+import { cleanupPeer, createPeer, parseMessage } from '../utils/peer-utils';
 import { useState } from 'react';
 
 interface UseClientPeerReturn {
@@ -23,8 +23,6 @@ export function useClientPeer(): UseClientPeerReturn {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { createPeer, cleanupPeer } = usePeer(host?.id);
-
   const sendMessage = async (type: string, content?: MessageContent) => {
     if (!host?.connection?.open) {
       console.error('No active connection to host');
@@ -32,7 +30,7 @@ export function useClientPeer(): UseClientPeerReturn {
     }
 
     try {
-      const message = serializeData({ type, ...content });
+      const message = parseMessage({ type, ...content });
       await host.connection.send(message);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -46,8 +44,6 @@ export function useClientPeer(): UseClientPeerReturn {
       return;
     }
 
-    console.log('Received message:', message);
-
     switch (message.type) {
       case 'playerData':
         // Received individual player data and players list
@@ -55,19 +51,12 @@ export function useClientPeer(): UseClientPeerReturn {
           const validatedPlayerData = validatePlayerData(message.playerData);
           if (validatedPlayerData) {
             setCurrentPlayerData(validatedPlayerData);
-            console.log('Updated current player data:', validatedPlayerData);
           }
         }
         if (message.playersList) {
           const validatedPlayersList = validatePlayersList(message.playersList);
           if (validatedPlayersList) {
             setPlayersList(validatedPlayersList);
-            console.log('Updated players list:', validatedPlayersList);
-
-            // Log room status information for debugging
-            const waitingCount = validatedPlayersList.filter((p) => p.status === 'waiting').length;
-            const inGameCount = validatedPlayersList.filter((p) => p.status === 'inGame').length;
-            console.log(`Room status - waiting: ${waitingCount}, in-game: ${inGameCount}`);
           }
         }
         break;
@@ -78,22 +67,17 @@ export function useClientPeer(): UseClientPeerReturn {
           const validatedGameState = validateGameState(message.gameState);
           if (validatedGameState) {
             setGameState(validatedGameState);
-            console.log('Updated game state:', validatedGameState);
           }
         }
         break;
 
       case 'hostLeft':
-        console.log('Host disconnected');
         clearStore();
         break;
 
-      case 'message':
-        console.log('Received message:', message.content);
-        break;
-
       default:
-        console.log('Unknown message type:', message.type);
+        console.error('Unknown message type:', message.type);
+        break;
     }
   };
 
@@ -102,7 +86,6 @@ export function useClientPeer(): UseClientPeerReturn {
     setError(null); // Clear any previous errors
 
     if (host?.connection?.open) {
-      console.log('Already connected to a host');
       setError('Already connected to a host');
       setConnecting(false);
       return;
@@ -112,7 +95,6 @@ export function useClientPeer(): UseClientPeerReturn {
     let connectionTimeout: NodeJS.Timeout | undefined;
 
     try {
-      console.log('Creating client peer to connect to host:', hostId);
       const result = await createPeer();
       peer = result.peer;
 
@@ -152,12 +134,11 @@ export function useClientPeer(): UseClientPeerReturn {
       });
 
       connection.on('open', async () => {
-        console.log('Successfully connected to host');
         if (connectionTimeout) clearTimeout(connectionTimeout);
         setError(null); // Clear error on successful connection
         setConnecting(false); // Set connecting to false on success
         await connection.send(
-          serializeData({
+          parseMessage({
             type: 'join',
             id: peer.id,
             name,
@@ -166,12 +147,10 @@ export function useClientPeer(): UseClientPeerReturn {
       });
 
       connection.on('data', (data: unknown) => {
-        console.log('Received message from host:', data);
         onMessageReceived(data);
       });
 
       connection.on('close', () => {
-        console.log('Connection to host closed');
         if (connectionTimeout) clearTimeout(connectionTimeout);
         setError('Connection to host was closed');
         setConnecting(false);
@@ -197,14 +176,11 @@ export function useClientPeer(): UseClientPeerReturn {
   };
 
   const enhancedCleanupPeer = (peer: Peer): void => {
-    // For clients, we don't need to notify others when leaving
-    console.log('Client leaving game');
-    cleanupPeer(peer);
+    cleanupPeer(peer, host?.id);
     clearStore();
   };
 
   const isConnected = host?.connection?.open ?? false;
-  console.log('isConnected', isConnected, 'host', host);
 
   return {
     createPeer,

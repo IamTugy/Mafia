@@ -1,7 +1,7 @@
 import Peer from 'peerjs';
 import type { DataConnection } from 'peerjs';
 import { useServerStore, type HostState } from '@/lib/store/server-store';
-import { usePeer, serializeData, parseMessage } from './use-peer';
+import { cleanupPeer, createPeer, parseMessage } from '../utils/peer-utils';
 import { useCallback, useEffect } from 'react';
 
 interface UseServerPeerReturn {
@@ -33,8 +33,6 @@ export function useServerPeer(): UseServerPeerReturn {
     leaveGame: storeLeaveGame,
   } = useServerStore();
 
-  const { createPeer, cleanupPeer } = usePeer(host?.peer?.id);
-
   const broadcastPlayerData = useCallback(() => {
     if (!host.isActive) return;
 
@@ -47,7 +45,7 @@ export function useServerPeer(): UseServerPeerReturn {
           status: c.playerData.status,
         }));
 
-        const message = serializeData({
+        const message = parseMessage({
           type: 'playerData',
           playerData: client.playerData,
           playersList,
@@ -63,11 +61,7 @@ export function useServerPeer(): UseServerPeerReturn {
   }, [clients, host.isActive]);
 
   const setupHost = useCallback(async () => {
-    console.log('Creating new game as host...');
-
     const { peer, id } = await createPeer(true);
-
-    console.log('Host peer created with ID:', id);
 
     setHost({ id, peer });
 
@@ -88,8 +82,6 @@ export function useServerPeer(): UseServerPeerReturn {
         switch (message.type) {
           case 'join':
             if (message.id && message.name) {
-              console.log('Adding client to server store:', message.id, message.name);
-
               addClient({
                 playerData: {
                   id: message.id,
@@ -106,19 +98,18 @@ export function useServerPeer(): UseServerPeerReturn {
 
           case 'leave':
             if (message.id) {
-              console.log('Client leaving:', message.id);
               removeClient(message.id);
               broadcastPlayerData();
             }
             break;
 
           default:
-            console.log('Unknown message type:', message.type);
+            console.error('Unknown message type:', message.type);
+            break;
         }
       });
 
       connection.on('close', () => {
-        console.log('Connection closed with peer:', connection.peer);
         removeClient(connection.peer);
         broadcastPlayerData();
       });
@@ -131,7 +122,7 @@ export function useServerPeer(): UseServerPeerReturn {
     peer.on('error', (err) => {
       console.error('Host peer error:', err);
     });
-  }, [addClient, broadcastPlayerData, createPeer, removeClient, setHost]);
+  }, [addClient, broadcastPlayerData, removeClient, setHost]);
 
   // Create a host peer if it doesn't exist
   useEffect(() => {
@@ -147,7 +138,7 @@ export function useServerPeer(): UseServerPeerReturn {
 
     clients.forEach(async (client) => {
       if (client.connection && client.connection.open) {
-        const message = serializeData({
+        const message = parseMessage({
           type: 'gameState',
           gameState,
         });
@@ -186,7 +177,7 @@ export function useServerPeer(): UseServerPeerReturn {
       clients.forEach(async (client) => {
         if (client.connection && client.connection.open) {
           try {
-            const message = serializeData({ type: 'hostLeft' });
+            const message = parseMessage({ type: 'hostLeft' });
             client.connection.send(message);
           } catch (error) {
             console.error('Error notifying client of host disconnect:', error);
@@ -194,7 +185,7 @@ export function useServerPeer(): UseServerPeerReturn {
         }
       });
     }
-    cleanupPeer(peer);
+    cleanupPeer(peer, host.id);
     storeLeaveGame();
   };
 

@@ -35,53 +35,23 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
   // Check if current player is waiting
   const isWaiting = currentPlayerData?.status === 'waiting';
 
-  // Debug logging for component updates
-  console.log('GameRoom render:', {
-    connectedPeersCount: connectedPeers.length,
-    phase,
-    isHost: isHost,
-  });
-
   // Add debug logging for button state
   const isButtonDisabled = connectedPeers.length < MAX_PLAYERS || phase !== 'waiting';
-  console.log('Button state:', {
-    connectedPeersCount: connectedPeers.length,
-    maxPlayers: MAX_PLAYERS,
-    currentPhase: phase,
-    isDisabled: isButtonDisabled,
-    isHost: isHost,
-  });
+
 
   const handleStartGame = () => {
     if (!isHost) {
-      console.warn('Non-host player attempted to start game');
+      console.error('Non-host player attempted to start game');
       return;
     }
 
-    if (connectedPeers.length < MAX_PLAYERS) {
-      console.warn(
-        `Cannot start game: need ${MAX_PLAYERS} players, but only ${connectedPeers.length} connected`
-      );
+    if (gameState.phase !== 'waiting') {
+      console.error('Cannot start game: game is already in progress');
       return;
     }
-
-    if (phase !== 'waiting') {
-      console.warn('Cannot start game: game is already in progress');
-      return;
-    }
-
-    console.log('Host starting game...', {
-      connectedPeersCount: connectedPeers.length,
-      phase,
-      isHost: isHost,
-    });
 
     try {
-      // Start the game
-      console.log('Starting game...');
       startGame();
-
-      console.log('Game start sequence completed');
     } catch (error) {
       console.error('Error starting game:', error);
     }
