@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LobbyCodeInput } from '@/components/lobby/lobby-code-input';
@@ -21,22 +21,25 @@ export function Lobby() {
     leaveGame: leaveGameClient,
   } = useClientPeer();
 
-  const createGame = () => {
+  const createGame = useCallback(() => {
     if (!host.id) {
       console.error('No host ID found');
       return;
     }
     connectToHost(host.id, playerName);
     createGameServer();
-  };
-
-  const leaveGame = () => {
-    leaveGameServer();
-    leaveGameClient();
-  };
+  }, [host.id, playerName, connectToHost, createGameServer]);
 
   if (isConnected && host.id) {
-    return <GameRoom onLeave={leaveGame} hostId={host.id} />;
+    return (
+      <GameRoom
+        onLeave={() => {
+          leaveGameServer();
+          leaveGameClient();
+        }}
+        hostId={host.id}
+      />
+    );
   }
 
   return (

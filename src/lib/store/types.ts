@@ -39,7 +39,7 @@ export type GameState = z.infer<typeof GameStateSchema>;
 export const PlayerListItemSchema = z.object({
   id: z.string(),
   name: z.string(),
-  index: z.number().optional(),
+  index: z.number().nullish(),
   status: z.enum(['waiting', 'inGame']).optional(),
 });
 export type PlayerListItem = z.infer<typeof PlayerListItemSchema>;

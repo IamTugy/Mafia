@@ -13,7 +13,7 @@ interface UseServerPeerReturn {
   cleanupPeer: (peer: Peer) => void;
   // Host management
   host: HostState;
-  createGame: () => Promise<void>;
+  createGame: () => void;
   leaveGame: () => void;
 }
 
@@ -21,19 +21,17 @@ export function useServerPeer(): UseServerPeerReturn {
   const {
     addClient,
     removeClient,
-    gameState,
-    clients,
     moveClientToGame: moveToGame,
     moveClientToWaiting: moveToWaiting,
     initializeGame,
     // Host state and actions
-    host,
     setHost,
     setHostActive,
     leaveGame: storeLeaveGame,
   } = useServerStore();
 
   const broadcastPlayerData = useCallback(() => {
+    const { host, clients } = useServerStore.getState();
     if (!host.isActive) return;
 
     clients.forEach(async (client) => {
@@ -58,7 +56,7 @@ export function useServerPeer(): UseServerPeerReturn {
         }
       }
     });
-  }, [clients, host.isActive]);
+  }, []);
 
   const setupHost = useCallback(async () => {
     const { peer, id } = await createPeer(true);
@@ -126,14 +124,16 @@ export function useServerPeer(): UseServerPeerReturn {
 
   // Create a host peer if it doesn't exist
   useEffect(() => {
+    const { host } = useServerStore.getState();
     (async () => {
       if (!host.peer) {
         await setupHost();
       }
     })();
-  }, [host.peer, setupHost]);
+  }, [setupHost]);
 
   const broadcastGameState = () => {
+    const { host, clients, gameState } = useServerStore.getState();
     if (!host.isActive) return;
 
     clients.forEach(async (client) => {
@@ -167,11 +167,12 @@ export function useServerPeer(): UseServerPeerReturn {
     broadcastGameState();
   };
 
-  const createGame = async (): Promise<void> => {
+  const createGame = () => {
     setHostActive(true);
   };
 
   const enhancedCleanupPeer = (peer: Peer): void => {
+    const { host, clients } = useServerStore.getState();
     if (host.isActive) {
       // Notify all clients that host is leaving
       clients.forEach(async (client) => {
@@ -185,7 +186,7 @@ export function useServerPeer(): UseServerPeerReturn {
         }
       });
     }
-    cleanupPeer(peer, host.id);
+    cleanupPeer(peer, host?.id);
     storeLeaveGame();
   };
 
@@ -197,7 +198,7 @@ export function useServerPeer(): UseServerPeerReturn {
     startGame,
     cleanupPeer: enhancedCleanupPeer,
     // Host management
-    host,
+    host: useServerStore.getState().host,
     createGame,
     leaveGame: storeLeaveGame,
   };

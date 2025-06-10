@@ -68,21 +68,19 @@ export const useServerStore = create<ServerStore>((set, get) => ({
 
   // Host management actions
   setHost: (host: Partial<HostState>) => {
-    const { host: currentHost } = get();
-    set({ host: { ...currentHost, ...host } });
+    set((state) => ({ host: { ...state.host, ...host } }));
   },
 
   setHostActive: (isActive: boolean) => {
-    const { host: currentHost } = get();
-    set({ host: { ...currentHost, isActive } });
+    set((state) => ({ host: { ...state.host, isActive } }));
   },
 
   leaveGame: () => {
-    set(() => ({
+    set({
       host: INITIAL_HOST_STATE,
       clients: [],
       gameState: INITIAL_GAME_STATE,
-    }));
+    });
   },
 
   // Clients management
