@@ -162,6 +162,10 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     const shuffledRoles = [...roles].sort(() => Math.random() - 0.5);
 
     set((state) => ({
+      gameState: {
+        phase: 'night.roleReveal',
+        day: 1,
+      },
       clients: state.clients.map((client) => {
         if (client.playerData.status === StatusSchema.enum.inGame) {
           const gameIndex = inGameClients.findIndex(
@@ -180,6 +184,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         return client;
       }),
     }));
+    get().updateClientsState();
   },
 
   // Clear store
