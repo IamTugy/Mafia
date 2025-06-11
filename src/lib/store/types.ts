@@ -85,7 +85,7 @@ export const PeerMessageSchema = z.object({
       })
     )
     .optional(),
-    playerState: PlayerStateSchema.optional(),
+  playerState: PlayerStateSchema.optional(),
 });
 export type PeerMessage = z.infer<typeof PeerMessageSchema>;
 

@@ -1,6 +1,11 @@
 import type { DataConnection, Peer } from 'peerjs';
 import { createPeer, parseMessage } from './peer-utils';
-import { MessageTypeSchema, StatusSchema, type ConnectedClient, type HostState } from '@/lib/store/types';
+import {
+  MessageTypeSchema,
+  StatusSchema,
+  type ConnectedClient,
+  type HostState,
+} from '@/lib/store/types';
 
 export const broadcastPlayerData = (host: HostState, clients: ConnectedClient[]) => {
   console.log('broadcastPlayerData', host, clients);
@@ -31,18 +36,18 @@ export const broadcastPlayerData = (host: HostState, clients: ConnectedClient[])
 };
 
 export const notifyHostLeft = (clients: ConnectedClient[]): void => {
-    // Notify all clients that host is leaving
-    clients.forEach(async (client) => {
+  // Notify all clients that host is leaving
+  clients.forEach(async (client) => {
     if (client.connection && client.connection.open) {
-        try {
+      try {
         const message = parseMessage({ type: MessageTypeSchema.enum.hostLeft });
         client.connection.send(message);
-        } catch (error) {
+      } catch (error) {
         console.error('Error notifying client of host disconnect:', error);
-        }
+      }
     }
-    });
-  };
+  });
+};
 
 export const createServerPeer = async (
   onJoin: (client: ConnectedClient) => void,
@@ -105,4 +110,4 @@ export const createServerPeer = async (
   });
 
   return peer;
-}; 
+};

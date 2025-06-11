@@ -16,13 +16,7 @@ interface UseClientPeerReturn {
 }
 
 export function useClientPeer(): UseClientPeerReturn {
-  const {
-    initializeClient,
-    clearStore,
-    host,
-    isConnecting,
-    error,
-  } = useClientStore();
+  const { initializeClient, clearStore, host, isConnecting, error } = useClientStore();
 
   const sendMessage = async (type: string, content?: MessageContent) => {
     if (!host?.connection?.open) {
@@ -42,10 +36,13 @@ export function useClientPeer(): UseClientPeerReturn {
     await initializeClient(hostId, name);
   };
 
-  const enhancedCleanupPeer = useCallback((peer: Peer): void => {
-    cleanupPeer(peer, host?.id);
-    clearStore();
-  }, [host?.id, clearStore]);
+  const enhancedCleanupPeer = useCallback(
+    (peer: Peer): void => {
+      cleanupPeer(peer, host?.id);
+      clearStore();
+    },
+    [host?.id, clearStore]
+  );
 
   const isConnected = host?.connection?.open ?? false;
 

@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { type Role, type PlayerData, type GameState, StatusSchema, type ConnectedClient, type HostState, MessageTypeSchema } from './types';
+import {
+  type Role,
+  type PlayerData,
+  type GameState,
+  StatusSchema,
+  type ConnectedClient,
+  type HostState,
+  MessageTypeSchema,
+} from './types';
 import { getRandomRoleImage } from '../utils/role-images';
 import { createServerPeer, notifyHostLeft } from '../utils/server-utils';
 import { MAX_PLAYERS } from '../consts';
@@ -52,12 +60,15 @@ export const useServerStore = create<ServerStore>((set, get) => ({
   initializeHost: async () => {
     const peer = await createServerPeer(
       (client) => {
-        const inGamePlayers = get().clients.filter((c) => c.playerData.status === StatusSchema.enum.inGame).length;
+        const inGamePlayers = get().clients.filter(
+          (c) => c.playerData.status === StatusSchema.enum.inGame
+        ).length;
         const clientWithStatus = {
           ...client,
           playerData: {
             ...client.playerData,
-            status: inGamePlayers < MAX_PLAYERS ? StatusSchema.enum.inGame : StatusSchema.enum.waiting,
+            status:
+              inGamePlayers < MAX_PLAYERS ? StatusSchema.enum.inGame : StatusSchema.enum.waiting,
           },
         };
         get().addClient(clientWithStatus);
@@ -133,7 +144,9 @@ export const useServerStore = create<ServerStore>((set, get) => ({
 
   // Game management
   initializeGame: () => {
-    const inGameClients = get().clients.filter((c) => c.playerData.status === StatusSchema.enum.inGame);
+    const inGameClients = get().clients.filter(
+      (c) => c.playerData.status === StatusSchema.enum.inGame
+    );
     const roles: Role[] = [
       'don',
       'mafia',
@@ -184,16 +197,19 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     const clients = get().clients;
     clients.forEach(async (client) => {
       if (client.connection && client.connection.open) {
-        const message = parseMessage({ type: MessageTypeSchema.enum.playerState, playerState: {
-          playerData: client.playerData,
-          playersList: clients.map((c) => ({
-            id: c.playerData.id,
-            name: c.playerData.name,
-            index: c.playerData.index,
-            status: c.playerData.status,
-          })),
-          gameState: get().gameState,
-        } });
+        const message = parseMessage({
+          type: MessageTypeSchema.enum.playerState,
+          playerState: {
+            playerData: client.playerData,
+            playersList: clients.map((c) => ({
+              id: c.playerData.id,
+              name: c.playerData.name,
+              index: c.playerData.index,
+              status: c.playerData.status,
+            })),
+            gameState: get().gameState,
+          },
+        });
         client.connection.send(message);
       }
     });

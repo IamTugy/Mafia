@@ -38,7 +38,6 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
   // Add debug logging for button state
   const isButtonDisabled = connectedPlayers.length < MAX_PLAYERS;
 
-
   const handleStartGame = () => {
     if (!isHost) {
       console.error('Non-host player attempted to start game');
@@ -55,7 +54,6 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
   const handleCopyId = () => {
     navigator.clipboard.writeText(hostId);
   };
-
 
   return (
     <div className="flex size-full items-center justify-center overflow-hidden bg-[url('/src/assets/game-lobby-background.png')] bg-cover bg-center p-4">

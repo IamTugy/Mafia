@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { type GamePhase, type PlayerData, type HostInfo, type GameState, type PlayerListItem, MessageTypeSchema } from './types';
+import {
+  type GamePhase,
+  type PlayerData,
+  type HostInfo,
+  type GameState,
+  type PlayerListItem,
+  MessageTypeSchema,
+} from './types';
 import { createClientPeer } from '../utils/client-utils';
 import { parseMessage } from '../utils/peer-utils';
 import type { Peer } from 'peerjs';
@@ -58,7 +65,7 @@ export const useClientStore = create<ClientStore>((set, get) => ({
   getCurrentPlayerData: () => get().currentPlayerData,
   getGameState: () => get().gameState,
   getHost: () => get().host,
-  
+
   // Setters
   setPlayersList: (players: PlayerListItem[]) => set({ playersList: players }),
   setCurrentPlayerData: (data: PlayerData) => set({ currentPlayerData: data }),
@@ -93,14 +100,13 @@ export const useClientStore = create<ClientStore>((set, get) => ({
           }
 
           switch (message.type) {
-            case MessageTypeSchema.enum.playerState:
-              {
-                if (!message.playerState) break;
-                get().setCurrentPlayerData(message.playerState.playerData);
-                get().setPlayersList(message.playerState.playersList);
-                get().setGameState(message.playerState.gameState);
-                break; 
-              }
+            case MessageTypeSchema.enum.playerState: {
+              if (!message.playerState) break;
+              get().setCurrentPlayerData(message.playerState.playerData);
+              get().setPlayersList(message.playerState.playersList);
+              get().setGameState(message.playerState.gameState);
+              break;
+            }
 
             case MessageTypeSchema.enum.hostLeft:
               get().clearStore();
