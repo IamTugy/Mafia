@@ -16,7 +16,7 @@ const generateShortId = (): string => {
   return num.toString();
 };
 
-export const createPeer = (useShortId?: boolean): Promise<{ peer: Peer; id: string }> => {
+export const createPeer = (useShortId?: boolean): Promise<Peer> => {
   return new Promise((resolve, reject) => {
     const peer = useShortId ? new Peer(generateShortId()) : new Peer();
 
@@ -24,7 +24,7 @@ export const createPeer = (useShortId?: boolean): Promise<{ peer: Peer; id: stri
 
     peer.on('open', (peerId: string) => {
       console.log('Peer opened with id:', peerId);
-      resolve({ peer, id: peerId });
+      resolve(peer);
     });
 
     peer.on('error', (err) => {

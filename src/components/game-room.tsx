@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { MAX_PLAYERS } from '@/lib/consts';
 import { useServerStore } from '@/lib/store/server-store';
 import { useClientStore } from '@/lib/store/client-store';
-import { useServerPeer } from '@/lib/hooks/use-server-peer';
+import { StatusSchema } from '@/lib/store/types';
 
 interface GameRoomProps {
   onLeave: () => void;
@@ -14,39 +14,34 @@ interface GameRoomProps {
 
 export function GameRoom({ onLeave, hostId }: GameRoomProps) {
   // Server store - for host
-  const { gameState, host: serverHost } = useServerStore();
 
   // Client store - for client data
-  const { playersList, currentPlayerData, gameState: clientGameState } = useClientStore();
+  const currentPlayerData = useClientStore((state) => state.currentPlayerData);
+  const players = useClientStore((state) => state.playersList);
 
   // Server peer - for host actions
-  const { startGame, moveClientToGame, moveClientToWaiting } = useServerPeer();
+  const serverHost = useServerStore((state) => state.host);
+  const startGame = useServerStore((state) => state.initializeGame);
+  const moveClientToGame = useServerStore((state) => state.moveClientToGame);
+  const moveClientToWaiting = useServerStore((state) => state.moveClientToWaiting);
 
   // Determine if this is a host or client
-  const isHost = serverHost.isActive;
-
-  // Use appropriate data based on host/client role
-  const phase = isHost ? gameState.phase : clientGameState.phase;
+  const isHost = serverHost?.isActive;
 
   // Filter players by status
-  const connectedPeers = playersList.filter((p) => p.status === 'inGame');
-  const waitingPeers = playersList.filter((p) => p.status === 'waiting');
+  const connectedPlayers = players.filter((p) => p.status === StatusSchema.enum.inGame);
+  const waitingPlayers = players.filter((p) => p.status === StatusSchema.enum.waiting);
 
   // Check if current player is waiting
-  const isWaiting = currentPlayerData?.status === 'waiting';
+  const isWaiting = currentPlayerData?.status === StatusSchema.enum.waiting;
 
   // Add debug logging for button state
-  const isButtonDisabled = connectedPeers.length < MAX_PLAYERS || phase !== 'waiting';
+  const isButtonDisabled = connectedPlayers.length < MAX_PLAYERS;
 
 
   const handleStartGame = () => {
     if (!isHost) {
       console.error('Non-host player attempted to start game');
-      return;
-    }
-
-    if (gameState.phase !== 'waiting') {
-      console.error('Cannot start game: game is already in progress');
       return;
     }
 
@@ -61,15 +56,6 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
     navigator.clipboard.writeText(hostId);
   };
 
-  const handleMovePlayerToWaiting = (playerId: string) => {
-    if (!isHost) return;
-    moveClientToWaiting(playerId);
-  };
-
-  const handleMovePlayerToGame = (playerId: string) => {
-    if (!isHost) return;
-    moveClientToGame(playerId);
-  };
 
   return (
     <div className="flex size-full items-center justify-center overflow-hidden bg-[url('/src/assets/game-lobby-background.png')] bg-cover bg-center p-4">
@@ -117,19 +103,19 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                         )}
                         size="lg"
                       >
-                        {connectedPeers.length < MAX_PLAYERS
-                          ? `Waiting for Players (${connectedPeers.length}/${MAX_PLAYERS})`
+                        {connectedPlayers.length < MAX_PLAYERS
+                          ? `Waiting for Players (${connectedPlayers.length}/${MAX_PLAYERS})`
                           : 'Start Game'}
                       </Button>
                     </div>
                     <p className="text-sm text-gray-400">
-                      {connectedPeers.length} / {MAX_PLAYERS} Players Connected
-                      {waitingPeers.length > 0 && ` (${waitingPeers.length} in waiting list)`}
+                      {connectedPlayers.length} / {MAX_PLAYERS} Players Connected
+                      {waitingPlayers.length > 0 && ` (${waitingPlayers.length} in waiting list)`}
                     </p>
                   </div>
                 </div>
                 <Progress
-                  value={(connectedPeers.length / MAX_PLAYERS) * 100}
+                  value={(connectedPlayers.length / MAX_PLAYERS) * 100}
                   className="mt-2 h-2 bg-gray-700 [&>div]:bg-red-600"
                 />
               </div>
@@ -148,13 +134,13 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                     )}
                   </h3>
                   <p className="text-sm text-gray-400">
-                    {connectedPeers.length} / {MAX_PLAYERS} Players Connected
-                    {waitingPeers.length > 0 && ` (${waitingPeers.length} in waiting list)`}
+                    {connectedPlayers.length} / {MAX_PLAYERS} Players Connected
+                    {waitingPlayers.length > 0 && ` (${waitingPlayers.length} in waiting list)`}
                   </p>
                 </div>
               </div>
               <Progress
-                value={(connectedPeers.length / MAX_PLAYERS) * 100}
+                value={(connectedPlayers.length / MAX_PLAYERS) * 100}
                 className="mt-2 h-2 bg-gray-700 [&>div]:bg-red-600"
               />
               {isWaiting ? (
@@ -164,7 +150,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                     spot becomes available.
                   </p>
                 </div>
-              ) : connectedPeers.length === MAX_PLAYERS && phase === 'night.roleReveal' ? (
+              ) : connectedPlayers.length === MAX_PLAYERS ? (
                 <p className="mt-2 text-sm text-gray-400">Waiting for host to start the game...</p>
               ) : null}
             </div>
@@ -172,16 +158,16 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
 
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-white">
-              Active Players ({connectedPeers.length})
+              Active Players ({connectedPlayers.length})
             </h2>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {connectedPeers.map((peer) => (
+              {connectedPlayers.map((player) => (
                 <div
-                  key={peer.id}
+                  key={player.id}
                   className={cn(
                     'rounded-lg border bg-gray-800/20 p-4',
-                    peer.id === currentPlayerData?.id
+                    player.id === currentPlayerData?.id
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-gray-700'
                   )}
@@ -189,18 +175,18 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-lg font-medium text-white">
-                        {peer.name}
-                        {peer.id === currentPlayerData?.id && (
+                        {player.name}
+                        {player.id === currentPlayerData?.id && (
                           <span className="ml-2 text-sm text-blue-400">(you)</span>
                         )}
                       </p>
-                      <p className="mt-1 text-sm text-gray-400">ID: {peer.id}</p>
+                      <p className="mt-1 text-sm text-gray-400">ID: {player.id}</p>
                     </div>
-                    {isHost && phase === 'waiting' && (
+                    {isHost && (
                       <Button
                         variant="semiTransparent"
                         size="sm"
-                        onClick={() => handleMovePlayerToWaiting(peer.id)}
+                        onClick={() => moveClientToWaiting(player.id)}
                         className="w-32 text-xs"
                       >
                         Move to Waiting
@@ -212,19 +198,19 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
             </div>
           </div>
 
-          {waitingPeers.length > 0 && (
+          {waitingPlayers.length > 0 && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-white">
-                Waiting List ({waitingPeers.length})
+                Waiting List ({waitingPlayers.length})
               </h2>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {waitingPeers.map((peer) => (
+                {waitingPlayers.map((player) => (
                   <div
-                    key={peer.id}
+                    key={player.id}
                     className={cn(
                       'rounded-lg border bg-gray-800/20 p-4',
-                      peer.id === currentPlayerData?.id
+                      player.id === currentPlayerData?.id
                         ? 'border-yellow-500 bg-yellow-500/10'
                         : 'border-gray-700'
                     )}
@@ -232,19 +218,20 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-lg font-medium text-white">
-                          {peer.name}
-                          {peer.id === currentPlayerData?.id && (
+                          {player.name}
+                          {player.id === currentPlayerData?.id && (
                             <span className="ml-2 text-sm text-yellow-400">(you)</span>
                           )}
                         </p>
-                        <p className="mt-1 text-sm text-gray-400">ID: {peer.id}</p>
+                        <p className="mt-1 text-sm text-gray-400">ID: {player.id}</p>
                       </div>
-                      {isHost && phase === 'waiting' && connectedPeers.length < MAX_PLAYERS && (
+                      {isHost && (
                         <Button
                           variant="semiTransparent"
                           size="sm"
-                          onClick={() => handleMovePlayerToGame(peer.id)}
+                          onClick={() => moveClientToGame(player.id)}
                           className="w-32 text-xs"
+                          disabled={connectedPlayers.length === MAX_PLAYERS}
                         >
                           Add to Game
                         </Button>

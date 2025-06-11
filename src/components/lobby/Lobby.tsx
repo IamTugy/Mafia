@@ -1,18 +1,21 @@
-'use client';
-
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LobbyCodeInput } from '@/components/lobby/lobby-code-input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { GameRoom } from '../game-room';
-import { useServerPeer } from '@/lib/hooks/use-server-peer';
 import { useClientPeer } from '@/lib/hooks/use-client-peer';
+import { useServerStore } from '@/lib/store/server-store';
+import { useClientStore } from '@/lib/store/client-store';
 
 export function Lobby() {
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
-  const { host, createGame: createGameServer, leaveGame: leaveGameServer } = useServerPeer();
+  const host = useClientStore((state) => state.host);
+  const isHostActive = useServerStore((state) => state.host?.isActive);
+  const leaveGame = useServerStore((state) => state.leaveGame);
+  const initializeHost = useServerStore((state) => state.initializeHost);
+
   const {
     connectToHost,
     isConnected,
@@ -21,20 +24,16 @@ export function Lobby() {
     leaveGame: leaveGameClient,
   } = useClientPeer();
 
-  const createGame = useCallback(() => {
-    if (!host.id) {
-      console.error('No host ID found');
-      return;
-    }
-    connectToHost(host.id, playerName);
-    createGameServer();
-  }, [host.id, playerName, connectToHost, createGameServer]);
+  const createGame = useCallback(async () => {
+    const host = await initializeHost();
+    await connectToHost(host.id, playerName);
+  }, [playerName, connectToHost, initializeHost]);
 
-  if (isConnected && host.id) {
+  if (isConnected && host) {
     return (
       <GameRoom
         onLeave={() => {
-          leaveGameServer();
+          leaveGame();
           leaveGameClient();
         }}
         hostId={host.id}
@@ -69,12 +68,12 @@ export function Lobby() {
             <h2 className="text-lg font-semibold text-white">Create New Game</h2>
             <Button
               className="w-full"
-              onClick={() => createGame()}
+              onClick={createGame}
               variant="semiTransparent"
               size="lg"
               disabled={!playerName || isConnecting}
             >
-              {isConnecting ? 'Creating...' : 'Create Game'}
+              {isHostActive && isConnecting ? 'Creating...' : 'Create Game'}
             </Button>
           </CardContent>
 
@@ -89,24 +88,24 @@ export function Lobby() {
             </div>
           </CardContent>
 
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4">
               <label className="text-sm font-medium text-white">Game Code</label>
               <LobbyCodeInput
                 value={gameId}
                 onChange={setGameId}
                 disabled={isConnecting}
-                onEnter={() => connectToHost(gameId, playerName)}
+                onEnter={async () => await connectToHost(gameId, playerName)}
               />
             </div>
             <Button
               className="w-full"
-              onClick={() => connectToHost(gameId, playerName)}
+              onClick={async () => await connectToHost(gameId, playerName)}
               variant="semiTransparent"
               size="lg"
               disabled={!gameId || !playerName || isConnecting || gameId.length !== 6}
             >
-              {isConnecting ? 'Joining...' : 'Join Game'}
+              {!isHostActive && isConnecting ? 'Joining...' : 'Join Game'}
             </Button>
           </CardContent>
 

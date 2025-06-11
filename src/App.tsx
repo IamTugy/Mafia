@@ -3,7 +3,7 @@ import { Game } from './components/game/game';
 import { useClientStore } from './lib/store/client-store';
 
 function App() {
-  const { gameState } = useClientStore();
+  const gameState = useClientStore((state) => state.gameState);
   const isGameStarted = gameState.phase !== 'waiting';
 
   return (

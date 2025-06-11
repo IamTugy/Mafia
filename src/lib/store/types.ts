@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { DataConnection } from 'peerjs';
+import type { DataConnection, Peer } from 'peerjs';
 
 // Zod schemas
 export const RoleSchema = z.enum(['don', 'mafia', 'sheriff', 'civilian', 'unknown']);
@@ -36,11 +36,14 @@ export const GameStateSchema = z.object({
 });
 export type GameState = z.infer<typeof GameStateSchema>;
 
+export const StatusSchema = z.enum(['waiting', 'inGame']);
+export type Status = z.infer<typeof StatusSchema>;
+
 export const PlayerListItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   index: z.number().nullish(),
-  status: z.enum(['waiting', 'inGame']).optional(),
+  status: StatusSchema.optional(),
 });
 export type PlayerListItem = z.infer<typeof PlayerListItemSchema>;
 
@@ -52,19 +55,24 @@ export const PlayerDataSchema = PlayerListItemSchema.extend({
 export type PlayerData = z.infer<typeof PlayerDataSchema>;
 
 // Peer message schemas
-export const PeerMessageTypeSchema = z.enum([
+export const MessageTypeSchema = z.enum([
   'join',
   'leave',
   'peerList',
   'message',
   'hostLeft',
-  'gameState',
-  'waitingList',
-  'playerData',
+  'playerState',
 ]);
 
+export const PlayerStateSchema = z.object({
+  playerData: PlayerDataSchema,
+  playersList: z.array(PlayerListItemSchema),
+  gameState: GameStateSchema,
+});
+export type PlayerState = z.infer<typeof PlayerStateSchema>;
+
 export const PeerMessageSchema = z.object({
-  type: PeerMessageTypeSchema,
+  type: MessageTypeSchema,
   id: z.string().optional(),
   name: z.string().optional(),
   content: z.string().optional(),
@@ -73,14 +81,11 @@ export const PeerMessageSchema = z.object({
       z.object({
         id: z.string(),
         name: z.string(),
-        status: z.enum(['waiting', 'inGame']),
+        status: StatusSchema,
       })
     )
     .optional(),
-  gameState: GameStateSchema.optional(),
-  playerName: z.string().optional(),
-  playerData: PlayerDataSchema.optional(),
-  playersList: z.array(PlayerListItemSchema).optional(),
+    playerState: PlayerStateSchema.optional(),
 });
 export type PeerMessage = z.infer<typeof PeerMessageSchema>;
 
@@ -93,7 +98,7 @@ export const MessageContentSchema = z.object({
       z.object({
         id: z.string(),
         name: z.string(),
-        status: z.enum(['waiting', 'inGame']),
+        status: StatusSchema,
       })
     )
     .optional(),
@@ -108,6 +113,17 @@ export type MessageContent = z.infer<typeof MessageContentSchema>;
 export interface HostInfo {
   id: string;
   connection: DataConnection;
+}
+
+export interface ConnectedClient {
+  playerData: PlayerData;
+  connection: DataConnection;
+}
+
+export interface HostState {
+  id: string;
+  peer: Peer | null;
+  isActive: boolean;
 }
 
 // Serialization helpers
