@@ -1,5 +1,5 @@
 // Game constants
-export const MAX_PLAYERS = 2;
+export const MAX_PLAYERS = 10;
 
 // Role distribution
 export const ROLES = [
