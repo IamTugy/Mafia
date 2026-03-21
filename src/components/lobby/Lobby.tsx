@@ -7,8 +7,10 @@ import { GameRoom } from '../game-room';
 import { useClientPeer } from '@/lib/hooks/use-client-peer';
 import { useServerStore } from '@/lib/store/server-store';
 import { useClientStore } from '@/lib/store/client-store';
+import { useAutoJoin } from '@/lib/hooks/use-auto-join';
 
 export function Lobby() {
+  useAutoJoin();
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
   const host = useClientStore((state) => state.host);
