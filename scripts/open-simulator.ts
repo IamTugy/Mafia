@@ -24,7 +24,7 @@ async function main() {
   // Open simulator — phones 2..N will auto-join via URL params inside iframes
   const simulatorPage = await context.newPage();
   await simulatorPage.goto(
-    `${SIMULATOR_URL}?gameCode=${gameCode}&count=${PLAYER_COUNT}`
+    `${SIMULATOR_URL}?gameCode=${gameCode}&count=${PLAYER_COUNT}&startIndex=2`
   );
 
   console.log(`Simulator open at ${SIMULATOR_URL} — ${PLAYER_COUNT} players connecting in background`);

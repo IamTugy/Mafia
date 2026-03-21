@@ -13,11 +13,13 @@ function parseParams() {
   const count = isNaN(countRaw)
     ? DEFAULT_COUNT
     : Math.min(MAX_COUNT, Math.max(MIN_COUNT, countRaw));
-  return { gameCode, count };
+  const startIndexRaw = parseInt(params.get('startIndex') ?? '', 10);
+  const startIndex = isNaN(startIndexRaw) ? 1 : Math.max(1, startIndexRaw);
+  return { gameCode, count, startIndex };
 }
 
 export default function App() {
-  const { gameCode, count: initialCount } = parseParams();
+  const { gameCode, count: initialCount, startIndex } = parseParams();
   const [count, setCount] = useState(initialCount);
   const [refreshKey, setRefreshKey] = useState(0);
   const [resetKey, setResetKey] = useState(0);
@@ -31,7 +33,7 @@ export default function App() {
         onResetLayout={() => setResetKey((k) => k + 1)}
       />
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <PhoneGrid gameCode={gameCode} count={count} refreshKey={refreshKey} resetKey={resetKey} />
+        <PhoneGrid gameCode={gameCode} count={count} refreshKey={refreshKey} resetKey={resetKey} startIndex={startIndex} />
       </div>
     </div>
   );

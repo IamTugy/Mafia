@@ -29,9 +29,10 @@ interface SortablePhoneProps {
   gameCode: string;
   scaleFactor: number;
   refreshKey: number;
+  startIndex: number;
 }
 
-function SortablePhone({ id, gameCode, scaleFactor, refreshKey }: SortablePhoneProps) {
+function SortablePhone({ id, gameCode, scaleFactor, refreshKey, startIndex }: SortablePhoneProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -44,7 +45,7 @@ function SortablePhone({ id, gameCode, scaleFactor, refreshKey }: SortablePhoneP
   };
 
   const src = gameCode
-    ? `${MAFIA_URL}?gameCode=${gameCode}&playerName=${encodeURIComponent(`Player ${id + 1}`)}`
+    ? `${MAFIA_URL}?gameCode=${gameCode}&playerName=${encodeURIComponent(`Player ${id + startIndex}`)}`
     : MAFIA_URL;
 
   return (
@@ -58,7 +59,7 @@ function SortablePhone({ id, gameCode, scaleFactor, refreshKey }: SortablePhoneP
         ⠿ drag
       </div>
       <PhoneFrame
-        label={`Player ${id + 1}`}
+        label={`Player ${id + startIndex}`}
         src={src}
         scaleFactor={scaleFactor}
         refreshKey={refreshKey}
@@ -72,9 +73,10 @@ interface PhoneGridProps {
   count: number;
   refreshKey: number;
   resetKey: number;
+  startIndex: number;
 }
 
-export function PhoneGrid({ gameCode, count, refreshKey, resetKey }: PhoneGridProps) {
+export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex }: PhoneGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(0.3);
   const { order, handleDragEnd } = useDragGrid(count, resetKey);
@@ -117,6 +119,7 @@ export function PhoneGrid({ gameCode, count, refreshKey, resetKey }: PhoneGridPr
               gameCode={gameCode}
               scaleFactor={scaleFactor}
               refreshKey={refreshKey}
+              startIndex={startIndex}
             />
           ))}
         </div>
