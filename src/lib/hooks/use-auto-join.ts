@@ -21,6 +21,10 @@ export function useAutoJoin() {
     if (isHost) {
       initializeHost().then((host) => {
         initializeClient(host.id, playerName);
+        // Notify parent frame (simulator) of the game code so other phones can join
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: 'mafia:game-code', code: host.id }, '*');
+        }
       });
     } else if (gameCode) {
       initializeClient(gameCode, playerName);

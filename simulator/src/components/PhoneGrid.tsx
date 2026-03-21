@@ -30,9 +30,10 @@ interface SortablePhoneProps {
   scaleFactor: number;
   refreshKey: number;
   startIndex: number;
+  hostFirst: boolean;
 }
 
-function SortablePhone({ id, gameCode, scaleFactor, refreshKey, startIndex }: SortablePhoneProps) {
+function SortablePhone({ id, gameCode, scaleFactor, refreshKey, startIndex, hostFirst }: SortablePhoneProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -44,9 +45,14 @@ function SortablePhone({ id, gameCode, scaleFactor, refreshKey, startIndex }: So
     zIndex: isDragging ? 50 : 'auto',
   };
 
-  const src = gameCode
-    ? `${MAFIA_URL}?gameCode=${gameCode}&playerName=${encodeURIComponent(`Player ${id + startIndex}`)}`
-    : MAFIA_URL;
+  // hostFirst mode: phone 0 is always the host, others wait for a game code
+  const isHostPhone = hostFirst && id === 0;
+  const playerNum = isHostPhone ? 1 : id + startIndex;
+  const src = isHostPhone
+    ? `${MAFIA_URL}?host=true&playerName=${encodeURIComponent(`Player ${playerNum}`)}`
+    : gameCode
+      ? `${MAFIA_URL}?gameCode=${gameCode}&playerName=${encodeURIComponent(`Player ${playerNum}`)}`
+      : '';
 
   return (
     <div ref={setNodeRef} style={style} className="flex flex-col items-center">
@@ -59,7 +65,7 @@ function SortablePhone({ id, gameCode, scaleFactor, refreshKey, startIndex }: So
         ⠿ drag
       </div>
       <PhoneFrame
-        label={`Player ${id + startIndex}`}
+        label={`Player ${playerNum}`}
         src={src}
         scaleFactor={scaleFactor}
         refreshKey={refreshKey}
@@ -74,9 +80,10 @@ interface PhoneGridProps {
   refreshKey: number;
   resetKey: number;
   startIndex: number;
+  hostFirst: boolean;
 }
 
-export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex }: PhoneGridProps) {
+export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex, hostFirst }: PhoneGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(0.3);
   const { order, handleDragEnd } = useDragGrid(count, resetKey);
@@ -84,13 +91,16 @@ export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex }:
   const sensors = useSensors(useSensor(PointerSensor));
   const cols = colsForCount(count);
 
-  // Calculate scale to fit phones in container height
+  const PHONE_SHELL_WIDTH = 390 + 12 * 2; // PHONE_WIDTH + BEZEL*2, matches PhoneFrame
+
+  // Calculate scale to fit phones in available cell width AND height
   useEffect(() => {
     const measure = () => {
       if (!containerRef.current) return;
       const rows = Math.ceil(count / cols);
       const availH = containerRef.current.clientHeight / rows - 40; // 40 for drag handle
-      const scale = Math.min(availH / PHONE_HEIGHT, 1);
+      const availW = containerRef.current.clientWidth / cols - 8;   // 8 for gap
+      const scale = Math.min(availH / PHONE_HEIGHT, availW / PHONE_SHELL_WIDTH, 1);
       setScaleFactor(Math.max(scale, 0.15));
     };
     measure();
@@ -120,6 +130,7 @@ export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex }:
               scaleFactor={scaleFactor}
               refreshKey={refreshKey}
               startIndex={startIndex}
+              hostFirst={hostFirst}
             />
           ))}
         </div>

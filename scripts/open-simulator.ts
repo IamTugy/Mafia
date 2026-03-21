@@ -1,6 +1,5 @@
 import { chromium } from '@playwright/test';
 
-const MAFIA_URL = 'http://localhost:5173';
 const SIMULATOR_URL = 'http://localhost:5174';
 const PLAYER_COUNT = Math.min(10, Math.max(5, Number(process.argv[2]) || 10));
 
@@ -12,22 +11,14 @@ async function main() {
   });
   const context = await browser.newContext();
 
-  // Player 1: create game via URL params
-  const hostPage = await context.newPage();
-  await hostPage.goto(
-    `${MAFIA_URL}?host=true&playerName=${encodeURIComponent('Player 1')}`
-  );
-  await hostPage.waitForSelector('[data-testid="game-code"]', { timeout: 20_000 });
-  const gameCode = (await hostPage.textContent('[data-testid="game-code"]'))!.trim();
-  console.log(`Game code: ${gameCode}`);
-
-  // Open simulator — phones 2..N will auto-join via URL params inside iframes
+  // Open simulator — phone 0 creates the game as Player 1 (hostFirst mode).
+  // Once the game code is available, the simulator auto-connects all other phones.
   const simulatorPage = await context.newPage();
   await simulatorPage.goto(
-    `${SIMULATOR_URL}?gameCode=${gameCode}&count=${PLAYER_COUNT}&startIndex=2`
+    `${SIMULATOR_URL}?count=${PLAYER_COUNT}&hostFirst=true`
   );
 
-  console.log(`Simulator open at ${SIMULATOR_URL} — ${PLAYER_COUNT} players connecting in background`);
+  console.log(`Simulator open at ${SIMULATOR_URL} — Player 1 creating game, others will connect automatically`);
   console.log('Close the browser window to exit.');
 
   await new Promise(() => {});
