@@ -27,7 +27,7 @@ export const MAFIA_NUMBER_CALL_INTERVAL_MS = 2000;   // gap between each seat nu
 export const MAFIA_KILL_WAIT_AFTER_CALLS_MS = 5000;  // extra wait after last number before tally
 
 // Role reveal card
-export const ROLE_REVEAL_HOLD_MS = 400; // how long pointer must be held before card flips
+export const ROLE_REVEAL_HOLD_MS = 0; // how long pointer must be held before card flips (0 = instant, good for e2e tests)
 
 // P2P
 export const CONNECTION_TIMEOUT_MS = 10000;
