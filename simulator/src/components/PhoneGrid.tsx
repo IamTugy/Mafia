@@ -15,8 +15,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { PhoneFrame } from './PhoneFrame';
 import { useDragGrid } from '../hooks/useDragGrid';
 
-const PHONE_HEIGHT = 844 + 24 + 40; // PHONE_HEIGHT + HOME_BAR_HEIGHT + TOP_BAR_HEIGHT, matches PhoneFrame
+const PHONE_HEIGHT = 844 + 24 + 40; // PHONE_HEIGHT + HOME_BAR_HEIGHT + TOP_BAR_HEIGHT
+const PHONE_SHELL_WIDTH = 390 + 12 * 2; // PHONE_WIDTH + BEZEL*2
 const MAFIA_URL = 'http://localhost:5173';
+const GAP = 4; // px between grid cells
 
 function colsForCount(count: number): number {
   if (count >= 9) return 5;
@@ -45,24 +47,23 @@ function SortablePhone({ id, gameCode, scaleFactor, refreshKey, startIndex, host
     zIndex: isDragging ? 50 : 'auto',
   };
 
-  // hostFirst mode: phone 0 is always the host, others wait for a game code
   const isHostPhone = hostFirst && id === 0;
   const playerNum = isHostPhone ? 1 : id + startIndex;
   const src = isHostPhone
     ? `${MAFIA_URL}?host=true&playerName=${encodeURIComponent(`Player ${playerNum}`)}`
     : gameCode
       ? `${MAFIA_URL}?gameCode=${gameCode}&playerName=${encodeURIComponent(`Player ${playerNum}`)}`
-      : '';
+      : 'about:blank';
 
   return (
-    <div ref={setNodeRef} style={style} className="flex flex-col items-center">
-      {/* Drag handle */}
+    <div ref={setNodeRef} style={style} className="relative">
+      {/* Drag handle — absolute top-right, sits above the phone bezel */}
       <div
         {...attributes}
         {...listeners}
-        className="mb-1 cursor-grab rounded px-4 py-0.5 text-xs text-gray-500 hover:bg-white/5 active:cursor-grabbing"
+        className="absolute right-1 top-1 z-10 cursor-grab rounded p-1 text-lg leading-none text-gray-400 hover:bg-white/10 active:cursor-grabbing"
       >
-        ⠿ drag
+        ⠿
       </div>
       <PhoneFrame
         label={`Player ${playerNum}`}
@@ -91,15 +92,13 @@ export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex, h
   const sensors = useSensors(useSensor(PointerSensor));
   const cols = colsForCount(count);
 
-  const PHONE_SHELL_WIDTH = 390 + 12 * 2; // PHONE_WIDTH + BEZEL*2, matches PhoneFrame
-
-  // Calculate scale to fit phones in available cell width AND height
+  // Scale phones to fill available cell space (constrained by whichever axis is tighter)
   useEffect(() => {
     const measure = () => {
       if (!containerRef.current) return;
       const rows = Math.ceil(count / cols);
-      const availH = containerRef.current.clientHeight / rows - 40; // 40 for drag handle
-      const availW = containerRef.current.clientWidth / cols - 8;   // 8 for gap
+      const availH = containerRef.current.clientHeight / rows;
+      const availW = (containerRef.current.clientWidth - (cols - 1) * GAP) / cols;
       const scale = Math.min(availH / PHONE_HEIGHT, availW / PHONE_SHELL_WIDTH, 1);
       setScaleFactor(Math.max(scale, 0.15));
     };
@@ -118,7 +117,7 @@ export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex, h
           style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gap: '8px',
+            gap: `${GAP}px`,
             alignItems: 'start',
           }}
         >

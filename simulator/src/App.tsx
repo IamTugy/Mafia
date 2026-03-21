@@ -46,7 +46,7 @@ export default function App() {
         onRefreshAll={() => setRefreshKey((k) => k + 1)}
         onResetLayout={() => setResetKey((k) => k + 1)}
       />
-      <div className="min-h-0 flex-1 overflow-hidden p-4">
+      <div className="min-h-0 flex-1 overflow-hidden p-1">
         <PhoneGrid
           gameCode={gameCode}
           count={count}
