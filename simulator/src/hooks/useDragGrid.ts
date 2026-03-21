@@ -21,7 +21,11 @@ export function useDragGrid(count: number, resetKey: number) {
   // Reset order when resetKey changes
   useEffect(() => {
     setOrder(Array.from({ length: count }, (_, i) => i));
-  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    // count is intentionally excluded: this effect must fire only when the user
+    // explicitly requests a layout reset, not on every count change.
+    // The count-change effect above handles count updates separately.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

@@ -7,11 +7,13 @@ interface PhoneFrameProps {
 
 const PHONE_WIDTH = 390;
 const PHONE_HEIGHT = 844;
-const BEZEL = 12; // px around iframe inside bezel
+const BEZEL = 12; // px side padding around iframe inside bezel
+const HOME_BAR_HEIGHT = 24; // h-6 Tailwind class = 24px
 
 export function PhoneFrame({ label, src, scaleFactor, refreshKey }: PhoneFrameProps) {
   const outerWidth = (PHONE_WIDTH + BEZEL * 2) * scaleFactor;
-  const outerHeight = (PHONE_HEIGHT + BEZEL * 2 + 40) * scaleFactor; // 40 for top bar with label
+  const outerHeight = (PHONE_HEIGHT + HOME_BAR_HEIGHT + 40) * scaleFactor; // 40 for top notch bar
+  const phoneShellHeight = PHONE_HEIGHT + HOME_BAR_HEIGHT + 40;
 
   return (
     <div
@@ -22,7 +24,7 @@ export function PhoneFrame({ label, src, scaleFactor, refreshKey }: PhoneFramePr
       <div
         style={{
           width: PHONE_WIDTH + BEZEL * 2,
-          height: PHONE_HEIGHT + BEZEL * 2 + 40,
+          height: phoneShellHeight,
           transform: `scale(${scaleFactor})`,
           transformOrigin: 'top left',
         }}
@@ -51,7 +53,7 @@ export function PhoneFrame({ label, src, scaleFactor, refreshKey }: PhoneFramePr
         />
 
         {/* Screen area */}
-        <div className="overflow-hidden" style={{ width: PHONE_WIDTH, margin: `0 ${BEZEL}px` }}>
+        <div className="overflow-hidden" style={{ width: PHONE_WIDTH, height: PHONE_HEIGHT, margin: `0 ${BEZEL}px` }}>
           <iframe
             key={refreshKey}
             src={src}
