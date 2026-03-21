@@ -12,7 +12,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,md,json}\"",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "open-lobby": "tsx scripts/open-lobby.ts"
+    "open-lobby": "tsx scripts/open-lobby.ts",
+    "open-simulator": "tsx scripts/open-simulator.ts"
   },
   "dependencies": {
     "@radix-ui/react-progress": "^1.1.8",
