@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
 import { cn } from '@/lib/utils';
-import { MAX_PLAYERS } from '@/lib/consts';
+import { MIN_PLAYERS, MAX_PLAYERS } from '@/lib/consts';
 import { useServerStore } from '@/lib/store/server-store';
 import { useClientStore } from '@/lib/store/client-store';
 import { StatusSchema } from '@/lib/store/types';
@@ -13,37 +13,24 @@ interface GameRoomProps {
 }
 
 export function GameRoom({ onLeave, hostId }: GameRoomProps) {
-  // Server store - for host
-
-  // Client store - for client data
   const currentPlayerData = useClientStore((state) => state.currentPlayerData);
   const players = useClientStore((state) => state.playersList);
 
-  // Server peer - for host actions
   const serverHost = useServerStore((state) => state.host);
   const startGame = useServerStore((state) => state.initializeGame);
   const moveClientToGame = useServerStore((state) => state.moveClientToGame);
   const moveClientToWaiting = useServerStore((state) => state.moveClientToWaiting);
 
-  // Determine if this is a host or client
   const isHost = serverHost?.isActive;
 
-  // Filter players by status
   const connectedPlayers = players.filter((p) => p.status === StatusSchema.enum.inGame);
   const waitingPlayers = players.filter((p) => p.status === StatusSchema.enum.waiting);
-
-  // Check if current player is waiting
   const isWaiting = currentPlayerData?.status === StatusSchema.enum.waiting;
 
-  // Add debug logging for button state
-  const isButtonDisabled = connectedPlayers.length < MAX_PLAYERS;
+  const isButtonDisabled = connectedPlayers.length < MIN_PLAYERS;
 
   const handleStartGame = () => {
-    if (!isHost) {
-      console.error('Non-host player attempted to start game');
-      return;
-    }
-
+    if (!isHost) return;
     try {
       startGame();
     } catch (error) {
@@ -56,7 +43,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
   };
 
   return (
-    <div className="flex size-full items-center justify-center overflow-hidden bg-[url('/src/assets/game-lobby-background.png')] bg-cover bg-center p-4">
+    <div data-testid="game-room" className="flex size-full items-center justify-center overflow-hidden bg-[url('/src/assets/game-lobby-background.png')] bg-cover bg-center p-4">
       <Card className="max-h-3/4 w-full max-w-4xl overflow-scroll border-gray-700 bg-gray-800/10 shadow-xl backdrop-blur-md">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -76,7 +63,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-300">Game Code</p>
-                    <p className="mt-1 font-mono text-2xl tracking-wider text-white">{hostId}</p>
+                    <p data-testid="game-code" className="mt-1 font-mono text-2xl tracking-wider text-white">{hostId}</p>
                   </div>
                   <Button variant="semiTransparent" onClick={handleCopyId} className="w-20">
                     Copy
@@ -95,14 +82,15 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                       <Button
                         onClick={handleStartGame}
                         disabled={isButtonDisabled}
+                        data-testid="start-game-btn"
                         className={cn(
                           'w-42 bg-red-600 hover:bg-red-700',
                           isButtonDisabled && 'cursor-not-allowed opacity-50'
                         )}
                         size="lg"
                       >
-                        {connectedPlayers.length < MAX_PLAYERS
-                          ? `Waiting for Players (${connectedPlayers.length}/${MAX_PLAYERS})`
+                        {connectedPlayers.length < MIN_PLAYERS
+                          ? `Need ${MIN_PLAYERS - connectedPlayers.length} more player${MIN_PLAYERS - connectedPlayers.length === 1 ? '' : 's'}`
                           : 'Start Game'}
                       </Button>
                     </div>
@@ -148,14 +136,14 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                     spot becomes available.
                   </p>
                 </div>
-              ) : connectedPlayers.length === MAX_PLAYERS ? (
+              ) : connectedPlayers.length >= MIN_PLAYERS ? (
                 <p className="mt-2 text-sm text-gray-400">Waiting for host to start the game...</p>
               ) : null}
             </div>
           )}
 
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">
+            <h2 data-testid="active-players-count" className="text-lg font-semibold text-white">
               Active Players ({connectedPlayers.length})
             </h2>
 
@@ -180,7 +168,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                       </p>
                       <p className="mt-1 text-sm text-gray-400">ID: {player.id}</p>
                     </div>
-                    {isHost && (
+                    {isHost && player.id !== currentPlayerData?.id && (
                       <Button
                         variant="semiTransparent"
                         size="sm"

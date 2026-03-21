@@ -56,6 +56,7 @@ export function Lobby() {
           </label>
           <Input
             id="playerName"
+            data-testid="player-name-input"
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             placeholder="Enter your name"
@@ -72,6 +73,7 @@ export function Lobby() {
               variant="semiTransparent"
               size="lg"
               disabled={!playerName || isConnecting}
+              data-testid="create-game-btn"
             >
               {isHostActive && isConnecting ? 'Creating...' : 'Create Game'}
             </Button>
@@ -104,6 +106,7 @@ export function Lobby() {
               variant="semiTransparent"
               size="lg"
               disabled={!gameId || !playerName || isConnecting || gameId.length !== 6}
+              data-testid="join-game-btn"
             >
               {!isHostActive && isConnecting ? 'Joining...' : 'Join Game'}
             </Button>

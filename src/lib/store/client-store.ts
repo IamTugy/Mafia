@@ -5,10 +5,12 @@ import {
   type HostInfo,
   type GameState,
   type PlayerListItem,
-  MessageTypeSchema,
+  type MafiaClientState,
+  type MafiaAction,
+  MafiaClientStateSchema,
+  HostSnapshotSchema,
 } from './types';
-import { createClientPeer } from '../utils/client-utils';
-import { parseMessage } from '../utils/peer-utils';
+import { createClientP2P, sendActionToHost, destroyPeer, clearRejoinInfo } from '../p2p/client';
 import type { Peer } from 'peerjs';
 
 interface ClientState {
@@ -19,6 +21,8 @@ interface ClientState {
   peer: Peer | null;
   isConnecting: boolean;
   error: string | null;
+  backupHostId: string | null;
+  pendingHostSnapshot: unknown | null;
 }
 
 interface ClientStore extends ClientState {
@@ -40,6 +44,9 @@ interface ClientStore extends ClientState {
   // Client initialization
   initializeClient: (hostId: string, name: string) => Promise<void>;
 
+  // Action sending
+  sendAction: (action: MafiaAction) => void;
+
   // Clear store
   clearStore: () => void;
 }
@@ -55,18 +62,18 @@ const INITIAL_STATE: ClientState = {
   peer: null,
   isConnecting: false,
   error: null,
+  backupHostId: null,
+  pendingHostSnapshot: null,
 };
 
 export const useClientStore = create<ClientStore>((set, get) => ({
   ...INITIAL_STATE,
 
-  // Getters
   getPlayersList: () => get().playersList,
   getCurrentPlayerData: () => get().currentPlayerData,
   getGameState: () => get().gameState,
   getHost: () => get().host,
 
-  // Setters
   setPlayersList: (players: PlayerListItem[]) => set({ playersList: players }),
   setCurrentPlayerData: (data: PlayerData) => set({ currentPlayerData: data }),
   setGameState: (state: GameState) => set({ gameState: state }),
@@ -75,55 +82,51 @@ export const useClientStore = create<ClientStore>((set, get) => ({
   setConnecting: (isConnecting: boolean) => set({ isConnecting }),
   setError: (error: string | null) => set({ error }),
 
-  // Client initialization
   initializeClient: async (hostId: string, name: string) => {
     set({ isConnecting: true, error: null });
 
     try {
-      const { peer, connection } = await createClientPeer(
+      const { peer, connection } = await createClientP2P<MafiaClientState>(
         hostId,
         name,
-        () => {
-          set({
-            host: { id: hostId, connection },
-            isConnecting: false,
-            error: null,
-          });
-        },
-        (data) => {
-          // Handle incoming messages
-          const message = parseMessage(data);
-          console.log('message', message);
-          if (!message) {
-            console.error('Failed to parse message from host');
-            return;
-          }
-
-          switch (message.type) {
-            case MessageTypeSchema.enum.playerState: {
-              if (!message.playerState) break;
-              get().setCurrentPlayerData(message.playerState.playerData);
-              get().setPlayersList(message.playerState.playersList);
-              get().setGameState(message.playerState.gameState);
-              break;
+        {
+          onConnected: () => {
+            set({ host: { id: hostId, connection }, isConnecting: false, error: null });
+          },
+          onStateUpdate: (state: MafiaClientState) => {
+            const result = MafiaClientStateSchema.safeParse(state);
+            if (!result.success) {
+              console.error('Failed to validate state from host:', result.error);
+              return;
             }
-
-            case MessageTypeSchema.enum.hostLeft:
-              get().clearStore();
-              break;
-
-            default:
-              console.error('Unknown message type:', message.type);
-              break;
-          }
-        },
-        () => {
-          set({ error: 'Connection to host was closed', isConnecting: false });
-          get().clearStore();
-        },
-        (error) => {
-          set({ error: error.message, isConnecting: false });
-          get().clearStore();
+            const { playerData, playersList, gameState, backupHostId } = result.data;
+            set({
+              currentPlayerData: playerData,
+              playersList,
+              gameState,
+              backupHostId: backupHostId ?? null,
+            });
+          },
+          onBecomeHost: (snapshot: unknown) => {
+            // Store snapshot — the UI/store orchestrator will handle the transition
+            const result = HostSnapshotSchema.safeParse(snapshot);
+            if (result.success) {
+              set({ pendingHostSnapshot: result.data });
+            } else {
+              console.error('Failed to validate host snapshot:', result.error);
+            }
+          },
+          onHostLeft: () => {
+            get().clearStore();
+          },
+          onClose: () => {
+            set({ error: 'Connection to host was closed', isConnecting: false });
+            get().clearStore();
+          },
+          onError: (error: Error) => {
+            set({ error: error.message, isConnecting: false });
+            get().clearStore();
+          },
         }
       );
 
@@ -133,16 +136,24 @@ export const useClientStore = create<ClientStore>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to connect to host',
         isConnecting: false,
       });
-      get().clearStore();
     }
   },
 
-  // Clear store
+  sendAction: (action: MafiaAction) => {
+    const { host } = get();
+    if (!host?.connection?.open) {
+      console.error('No active connection to host');
+      return;
+    }
+    sendActionToHost(host.connection, action);
+  },
+
   clearStore: () => {
     const { peer } = get();
     if (peer) {
-      peer.destroy();
+      destroyPeer(peer);
     }
+    clearRejoinInfo();
     set(INITIAL_STATE);
   },
 }));
