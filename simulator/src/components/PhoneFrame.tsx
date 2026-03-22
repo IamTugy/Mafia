@@ -5,6 +5,7 @@ interface PhoneFrameProps {
   src: string;
   scaleFactor: number;
   refreshKey: number;
+  onScreenClick?: (x: number, y: number) => void;
 }
 
 const PHONE_WIDTH = 390;
@@ -13,10 +14,21 @@ const BEZEL = 12; // px side padding around iframe inside bezel
 const HOME_BAR_HEIGHT = 24; // h-6 Tailwind class = 24px
 
 export const PhoneFrame = forwardRef<HTMLIFrameElement, PhoneFrameProps>(
-  ({ label, src, scaleFactor, refreshKey }, ref) => {
+  ({ label, src, scaleFactor, refreshKey, onScreenClick }, ref) => {
     const outerWidth = (PHONE_WIDTH + BEZEL * 2) * scaleFactor;
     const outerHeight = (PHONE_HEIGHT + HOME_BAR_HEIGHT + 40) * scaleFactor; // 40 for top notch bar
     const phoneShellHeight = PHONE_HEIGHT + HOME_BAR_HEIGHT + 40;
+
+    const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!onScreenClick) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      // The overlay is inside the CSS-scaled phone shell, so getBoundingClientRect
+      // returns the on-screen (post-transform) size. Divide by the display ratio
+      // to get the unscaled iframe-space coordinates.
+      const x = (e.clientX - rect.left) * (PHONE_WIDTH / rect.width);
+      const y = (e.clientY - rect.top) * (PHONE_HEIGHT / rect.height);
+      onScreenClick(x, y);
+    };
 
     return (
       <div
@@ -56,7 +68,7 @@ export const PhoneFrame = forwardRef<HTMLIFrameElement, PhoneFrameProps>(
           />
 
           {/* Screen area */}
-          <div className="overflow-hidden" style={{ width: PHONE_WIDTH, height: PHONE_HEIGHT, margin: `0 ${BEZEL}px` }}>
+          <div className="relative overflow-hidden" style={{ width: PHONE_WIDTH, height: PHONE_HEIGHT, margin: `0 ${BEZEL}px` }}>
             <iframe
               ref={ref}
               key={refreshKey}
@@ -66,6 +78,13 @@ export const PhoneFrame = forwardRef<HTMLIFrameElement, PhoneFrameProps>(
               style={{ border: 'none', display: 'block' }}
               title={label}
             />
+            {/* Mirror-click overlay — covers exactly the iframe screen area */}
+            {onScreenClick && (
+              <div
+                onClick={handleOverlayClick}
+                className="absolute inset-0 z-10"
+              />
+            )}
           </div>
 
           {/* Home bar */}
