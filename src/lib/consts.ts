@@ -21,11 +21,13 @@ export const DAY_START_DURATION_MS = 30000;          // how long day.start is sh
 export const NIGHT_TRANSITION_DELAY_MS = 2000;       // pause between night sub-phases (fake delay)
 export const MAFIA_SETUP_TIMEOUT_MS = 60000;         // fallback if not all mafia press Done (Night 1 turn)
 export const NIGHT_INVESTIGATION_TIMEOUT_MS = 60000; // fallback if sheriff/don doesn't press Continue
+export const NIGHT_INVESTIGATION_MIN_MS = 40000;    // minimum duration for sheriff/don turn (random min–max)
+export const NIGHT_INVESTIGATION_MAX_MS = 60000;    // maximum duration for sheriff/don turn (also the hard cap)
 
 // Mafia kill number-calling cadence
 export const MAFIA_NUMBER_CALL_INTERVAL_MS = 2000;   // gap between each seat number call
 export const MAFIA_KILL_WAIT_AFTER_CALLS_MS = 5000;  // extra wait after last number before tally
-export const MAFIA_KILL_SLEEP_DELAY_MS = 4000;       // pause before first number (lets narration finish / everyone "sleeps")
+export const MAFIA_KILL_SLEEP_DELAY_MS = 14000;      // pause before first number (lets narration finish / everyone "sleeps")
 
 // Role reveal card
 export const ROLE_REVEAL_HOLD_MS = 0; // how long pointer must be held before card flips (0 = instant, good for e2e tests)

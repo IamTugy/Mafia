@@ -25,9 +25,9 @@ export const serializeP2PMessage = (message: P2PWireMessage): string =>
 const generateShortId = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
-export const createPeer = (useShortId?: boolean): Promise<Peer> =>
+export const createPeer = (useShortId?: boolean, explicitId?: string): Promise<Peer> =>
   new Promise((resolve, reject) => {
-    const peer = useShortId ? new Peer(generateShortId()) : new Peer();
+    const peer = explicitId ? new Peer(explicitId) : useShortId ? new Peer(generateShortId()) : new Peer();
     peer.on('open', () => resolve(peer));
     peer.on('error', (err) => reject(err));
   });

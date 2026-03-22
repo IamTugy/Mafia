@@ -7,10 +7,12 @@ import {
   type PlayerListItem,
   type MafiaClientState,
   type MafiaAction,
+  type HostSnapshot,
   MafiaClientStateSchema,
   HostSnapshotSchema,
 } from './types';
-import { createClientP2P, sendActionToHost, destroyPeer, clearRejoinInfo } from '../p2p/client';
+import { createClientP2P, sendActionToHost, destroyPeer, clearRejoinInfo, storeRejoinInfo } from '../p2p/client';
+import { useServerStore } from './server-store';
 import type { Peer } from 'peerjs';
 
 interface ClientState {
@@ -46,6 +48,9 @@ interface ClientStore extends ClientState {
 
   // Action sending
   sendAction: (action: MafiaAction) => void;
+
+  // Host failover
+  _attemptFailover: () => void;
 
   // Clear store
   clearStore: () => void;
@@ -117,11 +122,10 @@ export const useClientStore = create<ClientStore>((set, get) => ({
             }
           },
           onHostLeft: () => {
-            get().clearStore();
+            get()._attemptFailover();
           },
           onClose: () => {
-            set({ error: 'Connection to host was closed', isConnecting: false });
-            get().clearStore();
+            get()._attemptFailover();
           },
           onError: (error: Error) => {
             set({ error: error.message, isConnecting: false });
@@ -137,6 +141,59 @@ export const useClientStore = create<ClientStore>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to connect to host',
         isConnecting: false,
       });
+    }
+  },
+
+  _attemptFailover: () => {
+    const { pendingHostSnapshot, backupHostId, currentPlayerData, peer, gameState } = get();
+
+    // Guard against multiple calls (both onClose and onHostLeft may fire)
+    if (get().isConnecting) return;
+    set({ isConnecting: true });
+
+    const myId = currentPlayerData?.id;
+    const isGameActive = gameState.phase !== 'waiting' && gameState.phase !== 'ended';
+
+    if (!isGameActive || !backupHostId) {
+      // No failover possible — clean up
+      get().clearStore();
+      return;
+    }
+
+    // Destroy our old client peer before creating a new one
+    if (peer) destroyPeer(peer);
+    set({ peer: null, host: null });
+
+    const isBackup = myId === backupHostId;
+
+    if (isBackup && pendingHostSnapshot) {
+      // We are the backup host — promote ourselves
+      const snapshot = pendingHostSnapshot as HostSnapshot;
+      console.log('[Failover] Promoting to host from snapshot');
+      // Small delay to let the PeerJS server deregister our old peer ID
+      setTimeout(() => {
+        useServerStore.getState().initializeHostFromSnapshot(snapshot).then((host) => {
+          // Now connect to ourselves as a client
+          set({ isConnecting: false });
+          get().initializeClient(host.id, currentPlayerData?.name ?? 'Host', true);
+        }).catch((err) => {
+          console.error('[Failover] Failed to promote to host:', err);
+          get().clearStore();
+        });
+      }, 1000);
+    } else {
+      // We are a regular client — reconnect to the backup host after a delay
+      // to give the backup time to create its host peer
+      console.log('[Failover] Reconnecting to backup host:', backupHostId);
+      const name = currentPlayerData?.name ?? 'Player';
+      if (myId) storeRejoinInfo(myId, backupHostId);
+      setTimeout(() => {
+        set({ isConnecting: false });
+        get().initializeClient(backupHostId, name).catch((err) => {
+          console.error('[Failover] Failed to reconnect to backup host:', err);
+          get().clearStore();
+        });
+      }, 3000);
     }
   },
 

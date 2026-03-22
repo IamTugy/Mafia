@@ -196,7 +196,7 @@ export function Game() {
     return () => clearTimeout(id);
   }, [isHost, isPaused, gameState.phase, gameState.day, _enterPhase]);
 
-  // night.sheriffCheck / donCheck: auto-advance if role is dead (random 6–10s fake delay)
+  // night.sheriffCheck / donCheck: enforce minimum random duration (40-60s) even after Continue
   useEffect(() => {
     if (!isHost || isPaused) return;
     if (
@@ -213,25 +213,41 @@ export function Game() {
         ? alivePlayers.some((p) => p.role === 'sheriff')
         : alivePlayers.some((p) => p.role === 'don');
 
-    if (roleIsAlive) {
-      // Real role: fall back after investigation timeout in case they don't press Continue
-      const id = setTimeout(() => {
-        const next =
-          gameState.phase === 'night.sheriffCheck' ? 'night.donCheck' : 'day.start';
-        _enterPhase(next, gameState.day);
-      }, NIGHT_INVESTIGATION_TIMEOUT_MS);
-      return () => clearTimeout(id);
-    } else {
+    const advance = () => {
+      const next =
+        gameState.phase === 'night.sheriffCheck' ? 'night.donCheck' : 'day.start';
+      _enterPhase(next, gameState.day);
+    };
+
+    if (!roleIsAlive) {
       // Role is dead — random 6–10s fake delay
       const fakeDelay = Math.floor(Math.random() * 4000 + 6000);
-      const id = setTimeout(() => {
-        const next =
-          gameState.phase === 'night.sheriffCheck' ? 'night.donCheck' : 'day.start';
-        _enterPhase(next, gameState.day);
-      }, fakeDelay);
+      const id = setTimeout(advance, fakeDelay);
       return () => clearTimeout(id);
     }
-  }, [isHost, isPaused, gameState.phase, gameState.day, serverClients, _enterPhase]);
+
+    // Role is alive: advance when Continue is pressed AND minimum time has elapsed,
+    // or when the hard cap (60s) is reached, whichever comes first.
+    const minEndAt = gameState.investigationMinEndAt ?? 0;
+    const continueAt = gameState.investigationContinueAt;
+    const phaseStart = gameState.phaseStartedAt ?? Date.now();
+    const hardCapAt = phaseStart + NIGHT_INVESTIGATION_TIMEOUT_MS;
+
+    if (continueAt) {
+      // Continue was pressed — advance at minEndAt or now if already past
+      const advanceAt = Math.min(Math.max(minEndAt, Date.now()), hardCapAt);
+      const delay = advanceAt - Date.now();
+      if (delay <= 0) { advance(); return; }
+      const id = setTimeout(advance, delay);
+      return () => clearTimeout(id);
+    }
+
+    // Continue not yet pressed — hard cap fallback
+    const remaining = hardCapAt - Date.now();
+    if (remaining <= 0) { advance(); return; }
+    const id = setTimeout(advance, remaining);
+    return () => clearTimeout(id);
+  }, [isHost, isPaused, gameState.phase, gameState.day, gameState.investigationMinEndAt, gameState.investigationContinueAt, gameState.phaseStartedAt, serverClients, _enterPhase]);
 
   // day.discussion / defense: advance speaker when timer expires
   useEffect(() => {

@@ -10,9 +10,10 @@ export interface HostP2PCallbacks<TAction> {
 }
 
 export const createHostP2P = async <TAction>(
-  callbacks: HostP2PCallbacks<TAction>
+  callbacks: HostP2PCallbacks<TAction>,
+  peerId?: string
 ): Promise<Peer> => {
-  const peer = await createPeer(true);
+  const peer = await createPeer(!peerId, peerId);
 
   peer.on('connection', (connection: DataConnection) => {
     connection.on('open', () => {

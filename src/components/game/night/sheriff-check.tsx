@@ -64,13 +64,17 @@ export function SheriffCheck() {
             <p className="text-sm text-gray-400 mb-2">Investigation result</p>
             <p className={`text-3xl font-bold ${resultColor}`}>{resultLabel}</p>
           </div>
-          <button
-            data-testid="sheriff-continue-btn"
-            onClick={continueNight}
-            className="w-40 rounded-full bg-yellow-600 py-3 text-sm font-semibold text-white active:bg-yellow-700"
-          >
-            Continue
-          </button>
+          {gameState.investigationContinueAt ? (
+            <p className="text-sm text-gray-500">Waiting for night to end…</p>
+          ) : (
+            <button
+              data-testid="sheriff-continue-btn"
+              onClick={continueNight}
+              className="w-40 rounded-full bg-yellow-600 py-3 text-sm font-semibold text-white active:bg-yellow-700"
+            >
+              Continue
+            </button>
+          )}
         </div>
       )}
     </div>

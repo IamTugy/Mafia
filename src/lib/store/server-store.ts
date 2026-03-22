@@ -21,7 +21,7 @@ import {
   notifyAllHostLeft,
   destroyPeer,
 } from '../p2p/host';
-import { MIN_PLAYERS, MAX_PLAYERS, FINAL_VOTE_COUNTDOWN_SECONDS, SPEAKER_NARRATION_BUFFER_MS } from '../consts';
+import { MIN_PLAYERS, MAX_PLAYERS, FINAL_VOTE_COUNTDOWN_SECONDS, SPEAKER_NARRATION_BUFFER_MS, NIGHT_INVESTIGATION_MIN_MS, NIGHT_INVESTIGATION_MAX_MS } from '../consts';
 import { computeRoles, isMafiaRole } from '../game/roles';
 import { tallyKillVotes, tallyVotes, checkWinCondition } from '../game/voting';
 import {
@@ -168,7 +168,8 @@ export const useServerStore = create<ServerStore>((set, get) => ({
 
   initializeHostFromSnapshot: async (snapshot: HostSnapshot) => {
     const callbacks = buildCallbacks(get);
-    const peer = await createHostP2P<MafiaAction>(callbacks);
+    // Use the backup host's known ID so other clients can connect to it
+    const peer = await createHostP2P<MafiaAction>(callbacks, snapshot.backupHostId);
     const host = { peer, id: peer.id, isActive: true };
     set({
       host,
@@ -182,6 +183,22 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         connection: null as unknown as DataConnection,
       })),
     });
+
+    // After a grace period, mark any player who hasn't reconnected as disconnected
+    setTimeout(() => {
+      const { clients, gameState } = get();
+      const stillDisconnected = clients.filter(
+        (c) => !c.connection?.open && c.playerData.status === StatusSchema.enum.inGame
+      );
+      for (const c of stillDisconnected) {
+        get().updateClientPlayerData(c.playerData.id, { status: StatusSchema.enum.disconnected });
+        // Pause game for the first disconnected player (others will stack)
+        if (!gameState.pausedBy) {
+          get().pauseGame(c.playerData.id);
+        }
+      }
+    }, 15000);
+
     return host;
   },
 
@@ -372,6 +389,13 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       case 'night.roleReveal':
         extra = { ...extra, readyPlayers: [] };
         break;
+      case 'night.sheriffCheck':
+      case 'night.donCheck': {
+        // Random minimum duration between 40-60s so villagers can't infer timing
+        const minDuration = NIGHT_INVESTIGATION_MIN_MS + Math.random() * (NIGHT_INVESTIGATION_MAX_MS - NIGHT_INVESTIGATION_MIN_MS);
+        extra = { ...extra, investigationMinEndAt: now + minDuration, investigationContinueAt: undefined };
+        break;
+      }
       case 'night.mafiaKill':
         // phaseStartedAt used for number-calling cadence
         break;
@@ -715,16 +739,20 @@ export const useServerStore = create<ServerStore>((set, get) => ({
 
     const speakerId = pickSpeaker(clients);
     const next = getNextPhase('night.mafiaKill', gameState.day);
+    const now = Date.now();
+    const minDuration = NIGHT_INVESTIGATION_MIN_MS + Math.random() * (NIGHT_INVESTIGATION_MAX_MS - NIGHT_INVESTIGATION_MIN_MS);
     set({
       gameState: {
         ...gameState,
         phase: next.phase,
         day: next.day,
         lastEliminated: targetId ?? undefined,
-        phaseStartedAt: Date.now(),
+        phaseStartedAt: now,
         speakerId,
         narrationEvent: NarrationEvent.SHERIFF_WAKE,
         narrationContext: undefined,
+        investigationMinEndAt: now + minDuration,
+        investigationContinueAt: undefined,
       },
     });
     // Reset sheriff's lastInvestigationResult for this new night (night 2+ bypasses _enterPhase)
@@ -948,10 +976,13 @@ export const useServerStore = create<ServerStore>((set, get) => ({
 
       case 'continue': {
         const { phase } = gameState;
-        if (phase === 'night.sheriffCheck' && client.playerData.role === 'sheriff') {
-          get()._enterPhase('night.donCheck', gameState.day);
-        } else if (phase === 'night.donCheck' && client.playerData.role === 'don') {
-          get()._enterPhase('day.start', gameState.day);
+        if (
+          (phase === 'night.sheriffCheck' && client.playerData.role === 'sheriff') ||
+          (phase === 'night.donCheck' && client.playerData.role === 'don')
+        ) {
+          // Record that the role pressed Continue; the host timer enforces the minimum duration
+          get().setGameState({ ...gameState, investigationContinueAt: Date.now() });
+          get().updateClientsState();
         }
         break;
       }
@@ -1088,6 +1119,19 @@ export const useServerStore = create<ServerStore>((set, get) => ({
           backupHostId,
         };
         sendToClient(client.connection, state);
+      }
+    }
+
+    // Keep backup host snapshot up-to-date for failover
+    if (backupHostId && gameState.phase !== 'waiting') {
+      const backupClient = clients.find((c) => c.playerData.id === backupHostId);
+      if (backupClient?.connection?.open) {
+        const snapshot: HostSnapshot = {
+          players: clients.map((c) => c.playerData),
+          gameState,
+          backupHostId,
+        };
+        sendRawToClient(backupClient.connection, snapshot);
       }
     }
   },
