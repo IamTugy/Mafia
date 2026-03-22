@@ -30,6 +30,7 @@ import {
   NIGHT_TRANSITION_DELAY_MS,
   MAFIA_NUMBER_CALL_INTERVAL_MS,
   MAFIA_KILL_WAIT_AFTER_CALLS_MS,
+  MAFIA_KILL_SLEEP_DELAY_MS,
   MAFIA_SETUP_TIMEOUT_MS,
   NIGHT_INVESTIGATION_TIMEOUT_MS,
   DAY_START_DURATION_MS,
@@ -137,19 +138,18 @@ export function Game() {
 
   // ── HOST-ONLY TIMERS ──────────────────────────────────────────────────────
 
-  // day.start: auto-advance after display duration
-  // If lastEliminated exists → brief display then lastWords; else → discussion
+  // day.start: show for full DAY_START_DURATION_MS (death announcement / reaction time)
+  // then go to lastWords (if killed last night) or discussion (if nobody died)
   useEffect(() => {
     if (!isHost || isPaused || gameState.phase !== 'day.start') return;
     const hasVictim = !!gameState.lastEliminated;
-    const delay = hasVictim ? DAY_START_DURATION_MS / 2 : DAY_START_DURATION_MS;
     const id = setTimeout(() => {
       if (hasVictim) {
         _enterPhase('day.lastWords', gameState.day);
       } else {
         _enterPhase('day.discussion', gameState.day);
       }
-    }, delay);
+    }, DAY_START_DURATION_MS);
     return () => clearTimeout(id);
   }, [isHost, isPaused, gameState.phase, gameState.day, gameState.lastEliminated, _enterPhase]);
 
@@ -177,7 +177,8 @@ export function Game() {
       (c) => c.playerData.status === StatusSchema.enum.inGame
     );
     const callDuration = alivePlayers.length * MAFIA_NUMBER_CALL_INTERVAL_MS;
-    const totalMs = callDuration + MAFIA_KILL_WAIT_AFTER_CALLS_MS;
+    // Sleep delay comes first, then numbers, then a final buffer before tallying
+    const totalMs = MAFIA_KILL_SLEEP_DELAY_MS + callDuration + MAFIA_KILL_WAIT_AFTER_CALLS_MS;
     const remaining = totalMs - (Date.now() - gameState.phaseStartedAt);
 
     if (remaining <= 0) { _processNightKill(); return; }

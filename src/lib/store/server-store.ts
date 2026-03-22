@@ -348,7 +348,10 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       case 'day.start': {
         const eliminatedId = gameState.lastEliminated;
         if (eliminatedId) {
+          // Deferred elimination: the player was targeted at night but kept as inGame
+          // until now so they appeared alive during sheriff/don phases.
           const seat = clients.find((c) => c.playerData.id === eliminatedId)?.playerData.index;
+          get()._eliminatePlayer(eliminatedId);
           narrationEvent = NarrationEvent.DEATH_ANNOUNCED;
           narrationContext = seat ? String(seat) : undefined;
         } else {
@@ -478,6 +481,53 @@ export const useServerStore = create<ServerStore>((set, get) => ({
               narrationContext: undefined,
             },
           });
+        } else if (accusedList.length === 1) {
+          // Unanimous: every accusation pointed at the same player → instant elimination,
+          // skip defense and vote. Accused gets 30 s of last words then night resumes.
+          const targetId = accusedList[0];
+          const targetClient = clients.find((c) => c.playerData.id === targetId);
+          const nextFirst = gameState.firstSpeakerSeat
+            ? getNextFirstSpeaker(gameState.firstSpeakerSeat, inGamePlayers)
+            : (getAliveSeats(inGamePlayers)[0] ?? 1);
+          get()._eliminatePlayer(targetId);
+          const winner = checkWinCondition(get().clients.map((c) => c.playerData));
+          if (winner) {
+            set({
+              gameState: {
+                ...gameState,
+                phase: 'ended',
+                winner,
+                speakerQueue: undefined,
+                speakerStartedAt: undefined,
+                speakerId,
+                narrationEvent: winner === 'mafia' ? NarrationEvent.MAFIA_WINS : NarrationEvent.CIVILIANS_WIN,
+                narrationContext: undefined,
+              },
+            });
+          } else {
+            set({
+              gameState: {
+                ...gameState,
+                phase: 'day.lastWords',
+                accusations: undefined,
+                speakerQueue: undefined,
+                defenseIndex: undefined,
+                speakerStartedAt: undefined,
+                readyPlayers: undefined,
+                voteOpenAt: undefined,
+                voteCount: undefined,
+                firstSpeakerSeat: nextFirst,
+                lastEliminated: targetId,
+                lastWordsNextPhase: 'night.mafiaKill' as const,
+                phaseStartedAt: now,
+                speakerId,
+                narrationEvent: NarrationEvent.VOTE_ELIMINATED,
+                narrationContext: targetClient?.playerData.index
+                  ? String(targetClient.playerData.index)
+                  : undefined,
+              },
+            });
+          }
         } else {
           set({
             gameState: {
@@ -632,9 +682,18 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     set({ nightKillVotes: {} });
 
     if (targetId) {
-      get()._eliminatePlayer(targetId);
-      const winner = checkWinCondition(get().clients.map((c) => c.playerData));
+      // Check win condition as if the player were already eliminated.
+      // We defer the actual status change to day.start so the player appears
+      // alive during the rest of the night (sheriff/don phases).
+      const hypotheticalPlayers = clients.map((c) =>
+        c.playerData.id === targetId
+          ? { ...c.playerData, status: StatusSchema.enum.eliminated as const }
+          : c.playerData
+      );
+      const winner = checkWinCondition(hypotheticalPlayers);
       if (winner) {
+        // Eliminate immediately for the game-over screen
+        get()._eliminatePlayer(targetId);
         const speakerId = pickSpeaker(clients);
         set({
           gameState: {
@@ -650,6 +709,8 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         get().updateClientsState();
         return;
       }
+      // No winner: player stays inGame during the night phases.
+      // _enterPhase('day.start') will call _eliminatePlayer when morning arrives.
     }
 
     const speakerId = pickSpeaker(clients);
@@ -857,14 +918,8 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         const newVotes = { ...get().nightKillVotes, [clientId]: action.targetId };
         set({ nightKillVotes: newVotes });
         get().updateClientPlayerData(clientId, { myKillVote: action.targetId });
-
-        const aliveMafia = clients.filter(
-          (c) =>
-            c.playerData.status === StatusSchema.enum.inGame && isMafiaRole(c.playerData.role)
-        );
-        if (aliveMafia.every((m) => newVotes[m.playerData.id])) {
-          get()._processNightKill();
-        }
+        // Do NOT tally early — the full number countdown must finish first.
+        // game.tsx fires _processNightKill() when the timer expires.
         break;
       }
 

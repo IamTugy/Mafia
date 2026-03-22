@@ -8,11 +8,9 @@ export function SheriffCheck() {
 
   const isSheriff = currentPlayerData?.role === 'sheriff';
   const hasResult = !!currentPlayerData?.lastInvestigationResult;
-  const history = currentPlayerData?.investigationHistory ?? [];
-  // Also disable the player killed this very night (state may not yet reflect their elimination)
-  const disabledIds = gameState.lastEliminated
-    ? [...history, gameState.lastEliminated]
-    : history;
+  // Sheriff can re-investigate any player each night (history is informational only).
+  // Only disable the player killed this very night (not yet officially eliminated).
+  const disabledIds = gameState.lastEliminated ? [gameState.lastEliminated] : [];
 
   const { secondsLeft } = useCountdown({
     durationSeconds: NIGHT_INVESTIGATION_TIMEOUT_MS / 1000,

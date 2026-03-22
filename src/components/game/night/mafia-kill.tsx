@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useClientStore } from '@/lib/store/client-store';
-import { MAFIA_NUMBER_CALL_INTERVAL_MS } from '@/lib/consts';
+import { MAFIA_NUMBER_CALL_INTERVAL_MS, MAFIA_KILL_SLEEP_DELAY_MS } from '@/lib/consts';
 import { speakSeatNumber } from '@/lib/audio/tts';
 
 export function MafiaKill() {
@@ -25,7 +25,8 @@ export function MafiaKill() {
     const myPosition = aliveSeats.indexOf(myIndex);
     if (myPosition === -1) return;
 
-    const delay = myPosition * MAFIA_NUMBER_CALL_INTERVAL_MS;
+    // MAFIA_KILL_SLEEP_DELAY_MS gives narration time to finish before numbers start
+    const delay = MAFIA_KILL_SLEEP_DELAY_MS + myPosition * MAFIA_NUMBER_CALL_INTERVAL_MS;
     const elapsedNow = Date.now() - phaseStartedAt;
     const remaining = delay - elapsedNow;
 
@@ -62,7 +63,7 @@ export function MafiaKill() {
     .filter((i): i is number => i != null)
     .sort((a, b) => a - b);
 
-  const callIndex = Math.floor(elapsed / MAFIA_NUMBER_CALL_INTERVAL_MS);
+  const callIndex = Math.floor(Math.max(0, elapsed - MAFIA_KILL_SLEEP_DELAY_MS) / MAFIA_NUMBER_CALL_INTERVAL_MS);
   const currentCalledSeat = aliveSeats[callIndex] ?? null;
   const currentCalledPlayer = currentCalledSeat
     ? playersList.find((p) => p.index === currentCalledSeat && p.status === 'inGame')

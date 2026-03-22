@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { useClientStore } from '@/lib/store/client-store';
+import { useCountdown } from '@/lib/hooks/use-countdown';
+import { MAFIA_SETUP_TIMEOUT_MS } from '@/lib/consts';
 
 export function MafiaSetup() {
-  const { currentPlayerData, sendAction } = useClientStore();
+  const { currentPlayerData, gameState, sendAction } = useClientStore();
   const [done, setDone] = useState(false);
 
   const ismafia =
     currentPlayerData?.role === 'don' || currentPlayerData?.role === 'mafia';
+
+  const { secondsLeft } = useCountdown({
+    durationSeconds: MAFIA_SETUP_TIMEOUT_MS / 1000,
+    startedAt: gameState.phaseStartedAt,
+  });
 
   // Roles are private per client — mafia members recognise each other at the table.
   // This screen just confirms their own role and lets them signal Done.
@@ -22,6 +29,7 @@ export function MafiaSetup() {
       <div data-testid="phase-mafiaSetup" className="flex h-full w-full flex-col items-center justify-center gap-4 bg-gray-950">
         <p className="text-5xl">😴</p>
         <p className="text-lg text-gray-500">Keep your eyes closed…</p>
+        <p className="text-sm text-gray-700">{secondsLeft}s</p>
       </div>
     );
   }
@@ -35,6 +43,7 @@ export function MafiaSetup() {
         <p className="text-sm text-gray-400">
           Seat #{currentPlayerData?.index}
         </p>
+        <p className="text-xs text-gray-600">{secondsLeft}s remaining</p>
       </div>
 
       <div className="rounded-xl border border-gray-700 bg-gray-900 p-6 text-center">
