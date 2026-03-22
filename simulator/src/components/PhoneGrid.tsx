@@ -28,6 +28,7 @@ function colsForCount(count: number): number {
 
 interface SortablePhoneProps {
   id: number;
+  cssOrder: number;
   gameCode: string;
   scaleFactor: number;
   refreshKey: number;
@@ -35,11 +36,15 @@ interface SortablePhoneProps {
   hostFirst: boolean;
 }
 
-function SortablePhone({ id, gameCode, scaleFactor, refreshKey, startIndex, hostFirst }: SortablePhoneProps) {
+function SortablePhone({ id, cssOrder, gameCode, scaleFactor, refreshKey, startIndex, hostFirst }: SortablePhoneProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
   const style = {
+    // cssOrder keeps this phone's DOM node in place — only the CSS grid slot changes.
+    // Browsers reload iframes when their DOM position changes, so we must never let
+    // React move the node; changing `order` is a safe CSS-only update.
+    order: cssOrder,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
@@ -121,10 +126,13 @@ export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex, h
             alignItems: 'start',
           }}
         >
-          {order.map((id) => (
+          {/* Render in fixed DOM order so iframe nodes never move (browser reloads them on move).
+              CSS `order` on each phone controls the visual grid position instead. */}
+          {Array.from({ length: count }, (_, id) => (
             <SortablePhone
               key={id}
               id={id}
+              cssOrder={order.indexOf(id)}
               gameCode={gameCode}
               scaleFactor={scaleFactor}
               refreshKey={refreshKey}
