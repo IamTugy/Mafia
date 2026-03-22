@@ -25,6 +25,7 @@ export default function App() {
   const [count, setCount] = useState(initialCount);
   const [refreshKey, setRefreshKey] = useState(0);
   const [resetKey, setResetKey] = useState(0);
+  const [mirrorClicks, setMirrorClicks] = useState(false);
 
   // When hostFirst=true, phone 0 is the host. It posts the game code here via postMessage.
   useEffect(() => {
@@ -45,6 +46,8 @@ export default function App() {
         onCountChange={setCount}
         onRefreshAll={() => setRefreshKey((k) => k + 1)}
         onResetLayout={() => setResetKey((k) => k + 1)}
+        mirrorClicks={mirrorClicks}
+        onMirrorClicksChange={setMirrorClicks}
       />
       <div className="min-h-0 flex-1 overflow-hidden p-1">
         <PhoneGrid
@@ -54,6 +57,7 @@ export default function App() {
           resetKey={resetKey}
           startIndex={startIndex}
           hostFirst={hostFirst}
+          mirrorClicks={mirrorClicks}
         />
       </div>
     </div>

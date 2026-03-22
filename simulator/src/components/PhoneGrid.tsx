@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -15,8 +15,11 @@ import { CSS } from '@dnd-kit/utilities';
 import { PhoneFrame } from './PhoneFrame';
 import { useDragGrid } from '../hooks/useDragGrid';
 
+const PHONE_WIDTH = 390;
 const PHONE_HEIGHT = 844 + 24 + 40; // PHONE_HEIGHT + HOME_BAR_HEIGHT + TOP_BAR_HEIGHT
 const PHONE_SHELL_WIDTH = 390 + 12 * 2; // PHONE_WIDTH + BEZEL*2
+const BEZEL = 12;
+const TOP_BAR = 40;
 const MAFIA_URL = 'http://localhost:5173';
 const GAP = 4; // px between grid cells
 
@@ -34,9 +37,12 @@ interface SortablePhoneProps {
   refreshKey: number;
   startIndex: number;
   hostFirst: boolean;
+  mirrorClicks: boolean;
+  onMirrorClick: (sourceId: number, x: number, y: number) => void;
+  iframeRef: (id: number, el: HTMLIFrameElement | null) => void;
 }
 
-function SortablePhone({ id, cssOrder, gameCode, scaleFactor, refreshKey, startIndex, hostFirst }: SortablePhoneProps) {
+function SortablePhone({ id, cssOrder, gameCode, scaleFactor, refreshKey, startIndex, hostFirst, mirrorClicks, onMirrorClick, iframeRef }: SortablePhoneProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
@@ -60,6 +66,29 @@ function SortablePhone({ id, cssOrder, gameCode, scaleFactor, refreshKey, startI
       ? `${MAFIA_URL}?gameCode=${gameCode}&playerName=${encodeURIComponent(`Player ${playerNum}`)}`
       : 'about:blank';
 
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // The overlay sits on top of the scaled phone shell. We need coords relative
+    // to the iframe's viewport (unscaled). The overlay covers the full phone shell
+    // at the scaled size. Convert click position to unscaled iframe coords.
+    const rect = e.currentTarget.getBoundingClientRect();
+    const rawX = (e.clientX - rect.left) / scaleFactor;
+    const rawY = (e.clientY - rect.top) / scaleFactor;
+
+    // Subtract bezel + top bar offsets to get iframe-relative coords
+    const iframeX = rawX - BEZEL;
+    const iframeY = rawY - TOP_BAR;
+
+    // Only broadcast if click is within the iframe area
+    if (iframeX >= 0 && iframeX <= PHONE_WIDTH && iframeY >= 0 && iframeY <= 844) {
+      onMirrorClick(id, iframeX, iframeY);
+    }
+  };
+
+  const setIframeRef = useCallback(
+    (el: HTMLIFrameElement | null) => iframeRef(id, el),
+    [id, iframeRef]
+  );
+
   return (
     <div ref={setNodeRef} style={style} className="relative">
       {/* Drag handle — absolute top-right, sits above the phone bezel */}
@@ -70,7 +99,15 @@ function SortablePhone({ id, cssOrder, gameCode, scaleFactor, refreshKey, startI
       >
         ⠿
       </div>
+      {/* Mirror-click overlay — transparent, captures clicks when mirror mode is on */}
+      {mirrorClicks && (
+        <div
+          onClick={handleOverlayClick}
+          className="absolute inset-0 z-[5] cursor-crosshair"
+        />
+      )}
       <PhoneFrame
+        ref={setIframeRef}
         label={`Player ${playerNum}`}
         src={src}
         scaleFactor={scaleFactor}
@@ -87,15 +124,40 @@ interface PhoneGridProps {
   resetKey: number;
   startIndex: number;
   hostFirst: boolean;
+  mirrorClicks: boolean;
 }
 
-export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex, hostFirst }: PhoneGridProps) {
+export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex, hostFirst, mirrorClicks }: PhoneGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRefs = useRef<Map<number, HTMLIFrameElement>>(new Map());
   const [scaleFactor, setScaleFactor] = useState(0.3);
   const { order, handleDragEnd } = useDragGrid(count, resetKey);
 
   const sensors = useSensors(useSensor(PointerSensor));
   const cols = colsForCount(count);
+
+  const setIframeRef = useCallback((id: number, el: HTMLIFrameElement | null) => {
+    if (el) {
+      iframeRefs.current.set(id, el);
+    } else {
+      iframeRefs.current.delete(id);
+    }
+  }, []);
+
+  const handleMirrorClick = useCallback((sourceId: number, x: number, y: number) => {
+    // Send click coordinates to ALL iframes (including the source — the source
+    // has the overlay blocking it, so it needs the simulated click too)
+    iframeRefs.current.forEach((iframe) => {
+      try {
+        iframe.contentWindow?.postMessage(
+          { type: 'mafia:simulate-click', x, y },
+          '*'
+        );
+      } catch {
+        // cross-origin or iframe not ready
+      }
+    });
+  }, []);
 
   // Scale phones to fill available cell space (constrained by whichever axis is tighter)
   useEffect(() => {
@@ -138,6 +200,9 @@ export function PhoneGrid({ gameCode, count, refreshKey, resetKey, startIndex, h
               refreshKey={refreshKey}
               startIndex={startIndex}
               hostFirst={hostFirst}
+              mirrorClicks={mirrorClicks}
+              onMirrorClick={handleMirrorClick}
+              iframeRef={setIframeRef}
             />
           ))}
         </div>

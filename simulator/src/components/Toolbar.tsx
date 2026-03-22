@@ -3,9 +3,11 @@ interface ToolbarProps {
   onCountChange: (count: number) => void;
   onRefreshAll: () => void;
   onResetLayout: () => void;
+  mirrorClicks: boolean;
+  onMirrorClicksChange: (enabled: boolean) => void;
 }
 
-export function Toolbar({ count, onCountChange, onRefreshAll, onResetLayout }: ToolbarProps) {
+export function Toolbar({ count, onCountChange, onRefreshAll, onResetLayout, mirrorClicks, onMirrorClicksChange }: ToolbarProps) {
   return (
     <div className="flex items-center gap-4 border-b border-white/10 bg-gray-900 px-4 py-2">
       <span className="text-sm font-semibold text-gray-300">Mafia Simulator</span>
@@ -41,6 +43,20 @@ export function Toolbar({ count, onCountChange, onRefreshAll, onResetLayout }: T
       >
         Reset Layout
       </button>
+
+      <label className="ml-auto flex cursor-pointer items-center gap-2">
+        <span className="text-xs text-gray-400">Mirror Clicks</span>
+        <div
+          role="switch"
+          aria-checked={mirrorClicks}
+          onClick={() => onMirrorClicksChange(!mirrorClicks)}
+          className={`relative h-5 w-9 rounded-full transition-colors ${mirrorClicks ? 'bg-blue-500' : 'bg-gray-600'}`}
+        >
+          <div
+            className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${mirrorClicks ? 'translate-x-4' : 'translate-x-0.5'}`}
+          />
+        </div>
+      </label>
     </div>
   );
 }
