@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useServerStore } from '@/lib/store/server-store';
 import { useClientStore } from '@/lib/store/client-store';
+import { clearRejoinInfo } from '@/lib/p2p/client';
 
 export function useAutoJoin() {
   const initializeHost = useServerStore((state) => state.initializeHost);
@@ -17,6 +18,10 @@ export function useAutoJoin() {
     const isHost = params.get('host') === 'true';
 
     if (!playerName) return;
+
+    // Clear any stale rejoin info — iframes on the same origin share sessionStorage,
+    // so without this every iframe would rejoin as whatever peer last stored its info.
+    clearRejoinInfo();
 
     if (isHost) {
       initializeHost().then((host) => {
