@@ -32,7 +32,8 @@ export interface ClientP2PCallbacks<TState> {
 export const createClientP2P = async <TState>(
   hostId: string,
   playerName: string,
-  callbacks: ClientP2PCallbacks<TState>
+  callbacks: ClientP2PCallbacks<TState>,
+  skipRejoin = false
 ): Promise<{ peer: Peer; connection: DataConnection }> => {
   const peer = await createPeer();
 
@@ -55,7 +56,7 @@ export const createClientP2P = async <TState>(
   connection.on('open', async () => {
     clearTimeout(connectionTimeout);
 
-    const rejoinInfo = getStoredRejoinInfo();
+    const rejoinInfo = skipRejoin ? null : getStoredRejoinInfo();
     let myId: string;
     if (rejoinInfo && rejoinInfo.hostId === hostId) {
       connection.send(

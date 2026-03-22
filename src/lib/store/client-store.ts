@@ -42,7 +42,7 @@ interface ClientStore extends ClientState {
   setError: (error: string | null) => void;
 
   // Client initialization
-  initializeClient: (hostId: string, name: string) => Promise<void>;
+  initializeClient: (hostId: string, name: string, skipRejoin?: boolean) => Promise<void>;
 
   // Action sending
   sendAction: (action: MafiaAction) => void;
@@ -82,7 +82,7 @@ export const useClientStore = create<ClientStore>((set, get) => ({
   setConnecting: (isConnecting: boolean) => set({ isConnecting }),
   setError: (error: string | null) => set({ error }),
 
-  initializeClient: async (hostId: string, name: string) => {
+  initializeClient: async (hostId: string, name: string, skipRejoin = false) => {
     set({ isConnecting: true, error: null });
 
     try {
@@ -127,7 +127,8 @@ export const useClientStore = create<ClientStore>((set, get) => ({
             set({ error: error.message, isConnecting: false });
             get().clearStore();
           },
-        }
+        },
+        skipRejoin
       );
 
       set({ peer });
