@@ -21,7 +21,7 @@ import {
   notifyAllHostLeft,
   destroyPeer,
 } from '../p2p/host';
-import { MIN_PLAYERS, MAX_PLAYERS, FINAL_VOTE_COUNTDOWN_SECONDS, SPEAKER_NARRATION_BUFFER_MS, NIGHT_INVESTIGATION_MIN_MS, NIGHT_INVESTIGATION_MAX_MS } from '../consts';
+import { MIN_PLAYERS, MAX_PLAYERS, SPEAKER_NARRATION_BUFFER_MS, NIGHT_INVESTIGATION_MIN_MS, NIGHT_INVESTIGATION_MAX_MS } from '../consts';
 import { computeRoles, isMafiaRole } from '../game/roles';
 import { tallyKillVotes, tallyVotes, checkWinCondition } from '../game/voting';
 import {
@@ -99,7 +99,7 @@ const pickSpeaker = (clients: ConnectedClient[]): string | undefined =>
 
 const buildCallbacks = (get: () => ServerStore) => ({
   onClientJoin: (id: string, name: string, connection: DataConnection) => {
-    const { clients, gameState } = get();
+    const { clients } = get();
 
     // If a disconnected player with the same name exists, treat as rejoin
     const disconnected = clients.find(
@@ -136,7 +136,7 @@ const buildCallbacks = (get: () => ServerStore) => ({
         patch.disconnectVotes = newVotes;
       }
       if (Object.keys(patch).length > 0) {
-        set({ gameState: { ...get().gameState, ...patch } });
+        get().setGameState({ ...get().gameState, ...patch });
       }
       if (gs.pausedBy === originalId) {
         get().unpauseGame();
@@ -310,7 +310,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       mafiaSetupDone: [],
     });
     // Delay peer destruction to let messages flush over WebRTC
-    if (host?.peer) setTimeout(() => destroyPeer(host.peer), 200);
+    if (host?.peer) setTimeout(() => destroyPeer(host.peer!), 200);
   },
 
   addClient: (client) => {
@@ -818,7 +818,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       // alive during the rest of the night (sheriff/don phases).
       const hypotheticalPlayers = clients.map((c) =>
         c.playerData.id === targetId
-          ? { ...c.playerData, status: StatusSchema.enum.eliminated as const }
+          ? { ...c.playerData, status: StatusSchema.enum.eliminated }
           : c.playerData
       );
       const winner = checkWinCondition(hypotheticalPlayers);
