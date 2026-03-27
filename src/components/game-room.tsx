@@ -47,7 +47,7 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
       <Card className="max-h-3/4 w-full max-w-4xl overflow-scroll border-gray-700 bg-gray-800/10 shadow-xl backdrop-blur-md">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex-1 text-2xl font-bold text-white">
+            <CardTitle className="flex-4 text-2xl font-bold text-white">
               {isHost ? 'Game Room (Host)' : isWaiting ? 'Waiting List' : 'Waiting for Host'}
             </CardTitle>
             <Button onClick={onLeave} variant="semiTransparent" size="lg" className="w-42">
@@ -56,20 +56,20 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-8">
           {isHost && (
             <>
               <div className="rounded-lg border border-gray-700 bg-gray-800/20 p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-300">Game Code</p>
-                    <p data-testid="game-code" className="mt-1 font-mono text-2xl tracking-wider text-white">{hostId}</p>
+                    <p data-testid="game-code" className="mt-2 font-mono text-2xl tracking-wider text-white">{hostId}</p>
                   </div>
                   <Button variant="semiTransparent" onClick={handleCopyId} className="w-20">
                     Copy
                   </Button>
                 </div>
-                <p className="mt-2 text-sm text-gray-400">
+                <p className="mt-4 text-sm text-gray-400">
                   Share this code with other players to join the game
                 </p>
               </div>
@@ -127,17 +127,17 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
               </div>
               <Progress
                 value={(connectedPlayers.length / MAX_PLAYERS) * 100}
-                className="mt-2 h-2 bg-gray-700 [&>div]:bg-red-600"
+                className="mt-4 h-4 bg-gray-700 [&>div]:bg-red-600"
               />
               {isWaiting ? (
-                <div className="mt-2 rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-3">
+                <div className="mt-4 rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-4">
                   <p className="text-sm text-yellow-400">
                     You are currently in the waiting list. The host will add you to the game when a
                     spot becomes available.
                   </p>
                 </div>
               ) : connectedPlayers.length >= MIN_PLAYERS ? (
-                <p className="mt-2 text-sm text-gray-400">Waiting for host to start the game...</p>
+                <p className="mt-4 text-sm text-gray-400">Waiting for host to start the game...</p>
               ) : null}
             </div>
           )}
@@ -163,10 +163,10 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                       <p className="text-lg font-medium text-white">
                         {player.name}
                         {player.id === currentPlayerData?.id && (
-                          <span className="ml-2 text-sm text-blue-400">(you)</span>
+                          <span className="ml-4 text-sm text-blue-400">(you)</span>
                         )}
                       </p>
-                      <p className="mt-1 text-sm text-gray-400">ID: {player.id}</p>
+                      <p className="mt-2 text-sm text-gray-400">ID: {player.id}</p>
                     </div>
                     {isHost && player.id !== currentPlayerData?.id && (
                       <Button
@@ -206,10 +206,10 @@ export function GameRoom({ onLeave, hostId }: GameRoomProps) {
                         <p className="text-lg font-medium text-white">
                           {player.name}
                           {player.id === currentPlayerData?.id && (
-                            <span className="ml-2 text-sm text-yellow-400">(you)</span>
+                            <span className="ml-4 text-sm text-yellow-400">(you)</span>
                           )}
                         </p>
-                        <p className="mt-1 text-sm text-gray-400">ID: {player.id}</p>
+                        <p className="mt-2 text-sm text-gray-400">ID: {player.id}</p>
                       </div>
                       {isHost && (
                         <Button

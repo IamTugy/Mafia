@@ -71,7 +71,7 @@ export function Lobby() {
             Create a new game or join an existing one
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-4">
           <label htmlFor="playerName" className="text-sm font-medium text-white">
             Your Name
           </label>
@@ -86,7 +86,7 @@ export function Lobby() {
         </CardContent>
 
         <div className="space-y-4">
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-4">
             <h2 className="text-lg font-semibold text-white">Create New Game</h2>
             <Button
               className="w-full"
@@ -111,8 +111,8 @@ export function Lobby() {
             </div>
           </CardContent>
 
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-4">
+          <CardContent className="flex flex-col gap-8">
+            <div className="flex flex-col gap-8">
               <label className="text-sm font-medium text-white">Game Code</label>
               <LobbyCodeInput
                 value={gameId}
@@ -134,7 +134,7 @@ export function Lobby() {
           </CardContent>
 
           {error && (
-            <div className="px-6">
+            <div className="px-8">
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
                 {error}
               </div>
