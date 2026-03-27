@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LobbyCodeInput } from '@/components/lobby/lobby-code-input';
@@ -8,6 +8,7 @@ import { useClientPeer } from '@/lib/hooks/use-client-peer';
 import { useServerStore } from '@/lib/store/server-store';
 import { useClientStore } from '@/lib/store/client-store';
 import { useAutoJoin } from '@/lib/hooks/use-auto-join';
+import { getStoredRejoinInfo, clearRejoinInfo } from '@/lib/p2p/client';
 
 export function Lobby() {
   useAutoJoin();
@@ -25,6 +26,24 @@ export function Lobby() {
     error,
     leaveGame: leaveGameClient,
   } = useClientPeer();
+
+  // Auto-reconnect from sessionStorage if a player refreshes the page mid-game
+  const rejoinAttempted = useRef(false);
+  useEffect(() => {
+    if (rejoinAttempted.current) return;
+    rejoinAttempted.current = true;
+
+    // Skip for simulator iframes (they use URL params via useAutoJoin)
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('playerName')) return;
+
+    const info = getStoredRejoinInfo();
+    if (info?.playerName) {
+      connectToHost(info.hostId, info.playerName).catch(() => {
+        clearRejoinInfo();
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createGame = useCallback(async () => {
     const host = await initializeHost();

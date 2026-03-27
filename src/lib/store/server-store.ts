@@ -87,13 +87,63 @@ interface ServerStore extends ServerState {
 
 const INITIAL_GAME_STATE: GameState = { phase: 'waiting', day: 0 };
 
+/** Tracks the last phase for which we sent a backup snapshot, to avoid flooding. */
+let _lastSnapshotPhase: string = 'waiting';
+
+/** Re-entry guard for advanceSpeaker to prevent concurrent calls. */
+let _advancingSpeaker = false;
+
 /** Pick a random alive player ID to be the narrator for a phase. */
 const pickSpeaker = (clients: ConnectedClient[]): string | undefined =>
   getAlivePlayers(clients.map((c) => c.playerData)).sort(() => Math.random() - 0.5)[0]?.id;
 
 const buildCallbacks = (get: () => ServerStore) => ({
   onClientJoin: (id: string, name: string, connection: DataConnection) => {
-    const { clients } = get();
+    const { clients, gameState } = get();
+
+    // If a disconnected player with the same name exists, treat as rejoin
+    const disconnected = clients.find(
+      (c) =>
+        c.playerData.status === StatusSchema.enum.disconnected &&
+        c.playerData.name === name
+    );
+    if (disconnected) {
+      const originalId = disconnected.playerData.id;
+      // Replace connection first (uses old ID to find the client), then update the ID
+      get()._replaceConnection(originalId, connection);
+      get().updateClientPlayerData(originalId, { id, status: StatusSchema.enum.inGame });
+      // Update any references to the old ID in game state
+      const gs = get().gameState;
+      const patch: Partial<typeof gs> = {};
+      if (gs.pausedBy === originalId) patch.pausedBy = id;
+      if (gs.speakerId === originalId) patch.speakerId = id;
+      if (gs.lastEliminated === originalId) patch.lastEliminated = id;
+      if (gs.readyPlayers?.includes(originalId)) {
+        patch.readyPlayers = gs.readyPlayers.map((p) => (p === originalId ? id : p));
+      }
+      if (gs.accusations) {
+        const newAcc: Record<string, string> = {};
+        for (const [k, v] of Object.entries(gs.accusations)) {
+          newAcc[k === originalId ? id : k] = v === originalId ? id : v;
+        }
+        patch.accusations = newAcc;
+      }
+      if (gs.disconnectVotes) {
+        const newVotes: Record<string, 'eliminate' | 'wait'> = {};
+        for (const [k, v] of Object.entries(gs.disconnectVotes)) {
+          newVotes[k === originalId ? id : k] = v;
+        }
+        patch.disconnectVotes = newVotes;
+      }
+      if (Object.keys(patch).length > 0) {
+        set({ gameState: { ...get().gameState, ...patch } });
+      }
+      if (gs.pausedBy === originalId) {
+        get().unpauseGame();
+      }
+      return;
+    }
+
     const inGameCount = clients.filter(
       (c) => c.playerData.status === StatusSchema.enum.inGame
     ).length;
@@ -184,7 +234,8 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       })),
     });
 
-    // After a grace period, mark any player who hasn't reconnected as disconnected
+    // After a grace period, mark any player who hasn't reconnected as disconnected,
+    // and pick a new backup host from the connected players.
     setTimeout(() => {
       const { clients, gameState } = get();
       const stillDisconnected = clients.filter(
@@ -192,10 +243,27 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       );
       for (const c of stillDisconnected) {
         get().updateClientPlayerData(c.playerData.id, { status: StatusSchema.enum.disconnected });
-        // Pause game for the first disconnected player (others will stack)
         if (!gameState.pausedBy) {
           get().pauseGame(c.playerData.id);
         }
+      }
+
+      // Elect a new backup host from connected in-game players (skip the first
+      // client which is the host's own loopback connection).
+      const connected = get().clients.filter(
+        (c) => c.connection?.open && c.playerData.status === StatusSchema.enum.inGame
+      );
+      const newBackup = connected.length > 1 ? connected[1] : connected[0];
+      if (newBackup) {
+        set({ backupHostId: newBackup.playerData.id });
+        // Send snapshot to new backup
+        const snap: HostSnapshot = {
+          players: get().clients.map((c) => c.playerData),
+          gameState: get().gameState,
+          backupHostId: newBackup.playerData.id,
+        };
+        sendRawToClient(newBackup.connection, snap);
+        get().updateClientsState();
       }
     }, 15000);
 
@@ -206,9 +274,32 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     set((state) => ({ host: state.host ? { ...state.host, isActive } : undefined })),
 
   leaveGame: () => {
-    const { host, clients } = get();
-    notifyAllHostLeft(clients.map((c) => c.connection).filter(Boolean));
-    if (host?.peer) destroyPeer(host.peer);
+    const { host, clients, gameState, backupHostId } = get();
+
+    // Send a fresh snapshot to the backup host before shutting down so
+    // they have the most up-to-date state for failover.
+    if (backupHostId && gameState.phase !== 'waiting' && gameState.phase !== 'ended') {
+      const backupClient = clients.find((c) => c.playerData.id === backupHostId);
+      if (backupClient?.connection?.open) {
+        const snapshot: HostSnapshot = {
+          players: clients.map((c) => c.playerData),
+          gameState,
+          backupHostId,
+        };
+        sendRawToClient(backupClient.connection, snapshot);
+      }
+    }
+
+    // Notify all clients except the host-player's own connection (which is
+    // a loopback) — the host player is intentionally leaving, not failing over.
+    const hostPeerId = host?.id;
+    const remoteConns = clients
+      .filter((c) => c.connection?.peer !== hostPeerId)
+      .map((c) => c.connection)
+      .filter(Boolean);
+    notifyAllHostLeft(remoteConns);
+    // Reset state immediately so the host's own onClose handler
+    // sees phase='waiting' and skips failover.
     set({
       host: undefined,
       clients: [],
@@ -218,6 +309,8 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       finalVoteChoices: {},
       mafiaSetupDone: [],
     });
+    // Delay peer destruction to let messages flush over WebRTC
+    if (host?.peer) setTimeout(() => destroyPeer(host.peer), 200);
   },
 
   addClient: (client) => {
@@ -286,7 +379,10 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       () => Math.random() - 0.5
     );
 
-    const backupClient = inGameClients[0];
+    // Backup host must be a different player than the host itself.
+    // The host player is always the first client (index 0) since they connect
+    // to themselves before anyone else joins.
+    const backupClient = inGameClients.length > 1 ? inGameClients[1] : inGameClients[0];
     const backupHostId = backupClient?.playerData.id;
     const speakerId = pickSpeaker(get().clients);
 
@@ -376,13 +472,13 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         }
         break;
       }
-      case 'day.lastWords':  narrationEvent = NarrationEvent.DEFENSE_BEGIN; break;
+      case 'day.lastWords':  narrationEvent = NarrationEvent.LAST_WORDS; break;
       case 'day.discussion': narrationEvent = NarrationEvent.DISCUSSION_BEGIN; break;
       case 'day.defense':    narrationEvent = NarrationEvent.DEFENSE_BEGIN; break;
       case 'day.finalVote':  narrationEvent = NarrationEvent.VOTE_BEGIN; break;
     }
 
-    let extra: Partial<GameState> = { phaseStartedAt: now, speakerId, narrationEvent, narrationContext };
+    let extra: Partial<GameState> = { phaseStartedAt: now, speakerId, narrationEvent, narrationContext, voteResults: undefined };
 
     switch (phase) {
       case 'night.seating':
@@ -403,7 +499,6 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         extra = { ...extra, lastWordsNextPhase: 'day.discussion' as const };
         break;
       case 'day.discussion': {
-        // Fix (i): use firstSpeakerSeat directly without re-advancing
         const firstSpeakerSeat = gameState.firstSpeakerSeat ?? (getAliveSeats(inGamePlayers)[0] ?? 1);
         const speakerQueue = buildSpeakerQueue(firstSpeakerSeat, inGamePlayers);
         extra = {
@@ -413,6 +508,14 @@ export const useServerStore = create<ServerStore>((set, get) => ({
           speakerStartedAt: now + SPEAKER_NARRATION_BUFFER_MS,
           accusations: {},
         };
+        // Clear stale votes from previous day
+        set((state) => ({
+          clients: state.clients.map((c) => ({
+            ...c,
+            playerData: { ...c.playerData, myVote: undefined },
+          })),
+        }));
+        set({ finalVoteChoices: {} });
         break;
       }
       case 'day.defense':
@@ -472,6 +575,9 @@ export const useServerStore = create<ServerStore>((set, get) => ({
   },
 
   advanceSpeaker: () => {
+    if (_advancingSpeaker) return;
+    _advancingSpeaker = true;
+    try {
     const { gameState, clients } = get();
     const inGamePlayers = clients
       .filter((c) => c.playerData.status === StatusSchema.enum.inGame)
@@ -626,6 +732,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       }
       get().updateClientsState();
     }
+    } finally { _advancingSpeaker = false; }
   },
 
   endGame: () => {
@@ -785,6 +892,18 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       }
     }
 
+    // Build vote results for display (voterSeat → targetSeat)
+    const voteResults = Object.entries(completedVotes)
+      .map(([voterId, targetId]) => {
+        const voter = clients.find((c) => c.playerData.id === voterId);
+        const target = clients.find((c) => c.playerData.id === targetId);
+        return voter?.playerData.index != null && target?.playerData.index != null
+          ? { voterSeat: voter.playerData.index, targetSeat: target.playerData.index }
+          : null;
+      })
+      .filter((v): v is { voterSeat: number; targetSeat: number } => v !== null)
+      .sort((a, b) => a.voterSeat - b.voterSeat);
+
     const tally = tallyVotes(completedVotes);
     const toEliminate = tally.isTie ? tally.tiedIds : tally.winnerId ? [tally.winnerId] : [];
     for (const id of toEliminate) get()._eliminatePlayer(id);
@@ -822,7 +941,6 @@ export const useServerStore = create<ServerStore>((set, get) => ({
     const speakerId = pickSpeaker(get().clients);
 
     if (toEliminate.length > 0) {
-      // Transition to day.lastWords before night
       set({
         finalVoteChoices: {},
         gameState: {
@@ -839,6 +957,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
           lastWordsNextPhase: 'night.mafiaKill',
           phaseStartedAt: Date.now(),
           speakerId,
+          voteResults,
           narrationEvent: tiedIds.length > 0 ? NarrationEvent.VOTE_TIE : NarrationEvent.VOTE_ELIMINATED,
           narrationContext: eliminatedSeat ? String(eliminatedSeat) : undefined,
         },
@@ -1122,16 +1241,20 @@ export const useServerStore = create<ServerStore>((set, get) => ({
       }
     }
 
-    // Keep backup host snapshot up-to-date for failover
+    // Debounced backup snapshot — only send when the phase changes to avoid
+    // flooding the WebRTC data channel on every minor state update.
     if (backupHostId && gameState.phase !== 'waiting') {
-      const backupClient = clients.find((c) => c.playerData.id === backupHostId);
-      if (backupClient?.connection?.open) {
-        const snapshot: HostSnapshot = {
-          players: clients.map((c) => c.playerData),
-          gameState,
-          backupHostId,
-        };
-        sendRawToClient(backupClient.connection, snapshot);
+      if (gameState.phase !== _lastSnapshotPhase) {
+        _lastSnapshotPhase = gameState.phase;
+        const backupClient = clients.find((c) => c.playerData.id === backupHostId);
+        if (backupClient?.connection?.open) {
+          const snapshot: HostSnapshot = {
+            players: clients.map((c) => c.playerData),
+            gameState,
+            backupHostId,
+          };
+          sendRawToClient(backupClient.connection, snapshot);
+        }
       }
     }
   },

@@ -20,14 +20,13 @@ import { useClientStore } from '@/lib/store/client-store.ts';
 import { useServerStore } from '@/lib/store/server-store.ts';
 import { Button } from '@/components/ui/Button';
 import { StatusSchema } from '@/lib/store/types';
-import { narrateEvent, stopSpeaking } from '@/lib/audio/tts';
+import { narrateEvent, isMuted, type NarrationGameContext } from '@/lib/audio/tts';
 import { NarrationEvent } from '@/lib/audio/narration-events';
 import type { NarrationEventKey } from '@/lib/audio/narration-events';
 import {
   DISCUSSION_TIME_SECONDS,
   DEFENSE_TIME_SECONDS,
   FINAL_VOTE_TIME_SECONDS,
-  NIGHT_TRANSITION_DELAY_MS,
   MAFIA_NUMBER_CALL_INTERVAL_MS,
   MAFIA_KILL_WAIT_AFTER_CALLS_MS,
   MAFIA_KILL_SLEEP_DELAY_MS,
@@ -38,8 +37,7 @@ import {
 } from '@/lib/consts';
 
 // Pre-phase narrations to chain before the main event
-type NarrationEventKey2 = NarrationEventKey;
-const PRE_PHASE_NARRATIONS: Partial<Record<string, NarrationEventKey2[]>> = {
+const PRE_PHASE_NARRATIONS: Partial<Record<string, NarrationEventKey[]>> = {
   'night.mafiaSetup':   [NarrationEvent.GOOD_NIGHT],
   'night.mafiaKill':    [NarrationEvent.GOOD_NIGHT],
   'night.sheriffCheck': [NarrationEvent.MAFIA_SLEEP],
@@ -62,6 +60,7 @@ export function Game() {
     (state) => state.eliminateDisconnectedPlayer
   );
   const unpauseGame = useServerStore((state) => state.unpauseGame);
+  const leaveGame = useServerStore((state) => state.leaveGame);
   const sendAction = useClientStore((state) => state.sendAction);
 
   const isHost = serverHost?.isActive;
@@ -99,15 +98,59 @@ export function Game() {
     const context = gameState.narrationContext ?? undefined;
     const preEvents = PRE_PHASE_NARRATIONS[phase] ?? [];
 
-    const run = async () => {
-      for (const evt of preEvents) {
-        if (cancelled) return;
-        await narrateEvent(evt);
-        if (cancelled) return;
-        await new Promise<void>((res) => setTimeout(res, 800));
+    const buildGameContext = (): NarrationGameContext => {
+      const alive = playersList.filter((p) => p.status === 'inGame');
+      const eliminated = playersList.filter((p) => p.status === 'eliminated');
+      const isNight = gameState.phase.startsWith('night.');
+
+      const ctx: NarrationGameContext = {
+        day: gameState.day,
+        phase: isNight ? 'Night' : 'Day',
+        aliveCount: alive.length,
+        eliminatedCount: eliminated.length,
+        totalPlayers: playersList.filter((p) => p.status !== 'waiting' && p.status !== 'disconnected').length,
+        isFirstNight: gameState.day === 1 && isNight,
+      };
+
+      // Add recent elimination info
+      if (gameState.lastEliminated) {
+        const elim = playersList.find((p) => p.id === gameState.lastEliminated);
+        if (elim?.index != null) {
+          const method = gameState.phase === 'day.start' ? 'night' as const
+            : gameState.phase === 'day.lastWords' ? 'vote' as const
+            : 'disconnect' as const;
+          ctx.recentElimination = { seatNumber: elim.index, method };
+        }
       }
-      if (cancelled) return;
-      await narrateEvent(mainEvent, context);
+
+      // Add accusations info
+      if (gameState.accusations) {
+        const accusedIds = [...new Set(Object.values(gameState.accusations))];
+        const accusedSeats = accusedIds
+          .map((id) => playersList.find((p) => p.id === id)?.index)
+          .filter((i): i is number => i != null);
+        if (accusedSeats.length > 0) ctx.accusations = accusedSeats;
+      }
+
+      return ctx;
+    };
+
+    const run = async () => {
+      try {
+        if (!isMuted()) {
+          const gameCtx = buildGameContext();
+          for (const evt of preEvents) {
+            if (cancelled) return;
+            await narrateEvent(evt, undefined, gameCtx);
+            if (cancelled) return;
+            await new Promise<void>((res) => setTimeout(res, 800));
+          }
+          if (cancelled) return;
+          await narrateEvent(mainEvent, context, gameCtx);
+        }
+      } catch (err) {
+        console.error('Narration failed:', err);
+      }
     };
 
     run();
@@ -124,7 +167,11 @@ export function Game() {
     gameState.phaseStartedAt,
     gameState.speakerStartedAt,
     gameState.phase,
+    gameState.day,
+    gameState.lastEliminated,
+    gameState.accusations,
     currentPlayerData?.id,
+    playersList,
   ]);
 
   // Speech synthesis keepalive — Chrome pauses synthesis after ~30s of inactivity
@@ -163,8 +210,7 @@ export function Game() {
       const nextDay = next === 'night.mafiaKill' ? gameState.day + 1 : gameState.day;
       _enterPhase(next, nextDay);
     };
-    if (remaining <= 0) { goNext(); return; }
-    const id = setTimeout(goNext, remaining);
+    const id = setTimeout(goNext, Math.max(0, remaining));
     return () => clearTimeout(id);
   }, [isHost, isPaused, gameState.phase, gameState.phaseStartedAt, gameState.lastWordsNextPhase, gameState.day, _enterPhase]);
 
@@ -181,8 +227,7 @@ export function Game() {
     const totalMs = MAFIA_KILL_SLEEP_DELAY_MS + callDuration + MAFIA_KILL_WAIT_AFTER_CALLS_MS;
     const remaining = totalMs - (Date.now() - gameState.phaseStartedAt);
 
-    if (remaining <= 0) { _processNightKill(); return; }
-    const id = setTimeout(_processNightKill, remaining);
+    const id = setTimeout(_processNightKill, Math.max(0, remaining));
     return () => clearTimeout(id);
   }, [isHost, isPaused, gameState.phase, gameState.phaseStartedAt, serverClients, _processNightKill]);
 
@@ -236,15 +281,13 @@ export function Game() {
     if (continueAt) {
       // Continue was pressed — advance at minEndAt or now if already past
       const advanceAt = Math.min(Math.max(minEndAt, Date.now()), hardCapAt);
-      const delay = advanceAt - Date.now();
-      if (delay <= 0) { advance(); return; }
+      const delay = Math.max(0, advanceAt - Date.now());
       const id = setTimeout(advance, delay);
       return () => clearTimeout(id);
     }
 
     // Continue not yet pressed — hard cap fallback
-    const remaining = hardCapAt - Date.now();
-    if (remaining <= 0) { advance(); return; }
+    const remaining = Math.max(0, hardCapAt - Date.now());
     const id = setTimeout(advance, remaining);
     return () => clearTimeout(id);
   }, [isHost, isPaused, gameState.phase, gameState.day, gameState.investigationMinEndAt, gameState.investigationContinueAt, gameState.phaseStartedAt, serverClients, _enterPhase]);
@@ -260,12 +303,9 @@ export function Game() {
         ? DISCUSSION_TIME_SECONDS * 1000
         : DEFENSE_TIME_SECONDS * 1000;
 
-    const id = setInterval(() => {
-      if (Date.now() - (gameState.speakerStartedAt ?? Date.now()) >= duration) {
-        advanceSpeaker();
-      }
-    }, 500);
-    return () => clearInterval(id);
+    const remaining = Math.max(0, duration - (Date.now() - gameState.speakerStartedAt));
+    const id = setTimeout(advanceSpeaker, remaining);
+    return () => clearTimeout(id);
   }, [isHost, isPaused, gameState.phase, gameState.speakerStartedAt, advanceSpeaker]);
 
   // day.finalVote: process when voting window expires
@@ -274,8 +314,7 @@ export function Game() {
     if (!gameState.voteOpenAt) return;
 
     const windowCloseAt = gameState.voteOpenAt + FINAL_VOTE_TIME_SECONDS * 1000;
-    const delay = windowCloseAt - Date.now();
-    if (delay <= 0) { advanceFinalVote(); return; }
+    const delay = Math.max(0, windowCloseAt - Date.now());
     const id = setTimeout(advanceFinalVote, delay);
     return () => clearTimeout(id);
   }, [isHost, isPaused, gameState.phase, gameState.voteOpenAt, advanceFinalVote]);
@@ -296,7 +335,10 @@ export function Game() {
           <div className="flex flex-col items-center gap-3 pt-10 pb-4">
             <p className="text-sm text-gray-500">You've been eliminated</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                if (isHost) leaveGame();
+                useClientStore.getState().clearStore();
+              }}
               className="rounded-full bg-gray-800 px-8 py-3 text-sm font-semibold text-gray-300 active:bg-gray-700"
             >
               Exit Game
@@ -350,6 +392,8 @@ export function Game() {
       <span
         data-testid="current-phase"
         data-phase={gameState.phase}
+        data-my-seat={currentPlayerData?.index ?? ''}
+        data-my-id={currentPlayerData?.id ?? ''}
         className="sr-only"
         aria-hidden="true"
       >

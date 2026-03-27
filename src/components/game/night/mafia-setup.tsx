@@ -1,37 +1,40 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useClientStore } from '@/lib/store/client-store';
 import { useCountdown } from '@/lib/hooks/use-countdown';
-import { MAFIA_SETUP_TIMEOUT_MS } from '@/lib/consts';
+import { MAFIA_SETUP_TIMEOUT_MS, NIGHT_ROLE_WAKE_DELAY_MS } from '@/lib/consts';
+import { SleepScreen } from '../shared/sleep-screen';
 
 export function MafiaSetup() {
   const { currentPlayerData, gameState, sendAction } = useClientStore();
   const [done, setDone] = useState(false);
+  const [awake, setAwake] = useState(false);
 
-  const ismafia =
+  const isMafia =
     currentPlayerData?.role === 'don' || currentPlayerData?.role === 'mafia';
+
+  const phaseStartedAt = gameState.phaseStartedAt ?? Date.now();
+
+  // Delay before showing mafia their role screen (narration says "close eyes" first)
+  useEffect(() => {
+    if (!isMafia) return;
+    const remaining = NIGHT_ROLE_WAKE_DELAY_MS - (Date.now() - phaseStartedAt);
+    if (remaining <= 0) { setAwake(true); return; }
+    const id = setTimeout(() => setAwake(true), remaining);
+    return () => clearTimeout(id);
+  }, [isMafia, phaseStartedAt]);
 
   const { secondsLeft } = useCountdown({
     durationSeconds: MAFIA_SETUP_TIMEOUT_MS / 1000,
     startedAt: gameState.phaseStartedAt,
   });
 
-  // Roles are private per client — mafia members recognise each other at the table.
-  // This screen just confirms their own role and lets them signal Done.
-
   const handleDone = () => {
     setDone(true);
     sendAction({ type: 'ready' });
   };
 
-  if (!ismafia) {
-    // Non-mafia: sleeping screen
-    return (
-      <div data-testid="phase-mafiaSetup" className="flex h-full w-full flex-col items-center justify-center gap-4 bg-gray-950">
-        <p className="text-5xl">😴</p>
-        <p className="text-lg text-gray-500">Keep your eyes closed…</p>
-        <p className="text-sm text-gray-700">{secondsLeft}s</p>
-      </div>
-    );
+  if (!isMafia || !awake) {
+    return <SleepScreen testId="phase-mafiaSetup" secondsLeft={secondsLeft} />;
   }
 
   return (

@@ -23,7 +23,6 @@ export function FinalVote() {
 
   const dingFiredRef = useRef(false);
 
-  // Tick every 200ms to update live countdown while voting is open; ding when it expires
   useEffect(() => {
     if (!votingIsOpen || !voteOpenAt) return;
     dingFiredRef.current = false;
@@ -50,8 +49,8 @@ export function FinalVote() {
   if (!allReady || !voteOpenAt) {
     return (
       <div data-testid="phase-finalVote" className="flex h-full w-full flex-col items-center justify-between bg-gray-950 p-6 pt-10 pb-10">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <p className="text-xl font-bold text-white">Raise your phones</p>
+        <div className="flex flex-col items-center gap-2 text-center animate-fade-in-up">
+          <p className="text-2xl font-black text-white">Raise your phones</p>
           <p className="text-sm text-gray-400">Press Ready when prepared to vote</p>
         </div>
 
@@ -66,9 +65,9 @@ export function FinalVote() {
                 <div
                   key={p.id}
                   className={[
-                    'flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold border-2',
+                    'flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold border-2 transition-all duration-300',
                     readyPlayers.includes(p.id)
-                      ? 'border-green-500 bg-green-900/40 text-green-400'
+                      ? 'border-green-500 bg-green-900/40 text-green-400 scale-105'
                       : 'border-gray-700 bg-gray-900 text-gray-500',
                   ].join(' ')}
                 >
@@ -82,12 +81,12 @@ export function FinalVote() {
           <button
             data-testid="final-vote-ready-btn"
             onClick={markReady}
-            className="w-48 rounded-full bg-green-600 py-3 text-sm font-semibold text-white active:bg-green-700"
+            className="w-48 rounded-full bg-green-600 py-3 text-sm font-semibold text-white active:bg-green-700 animate-fade-in-up animation-delay-200"
           >
             Ready
           </button>
         ) : (
-          <p className="text-sm text-gray-500">Waiting for others…</p>
+          <p className="text-sm text-gray-500 animate-pulse">Waiting for others…</p>
         )}
       </div>
     );
@@ -101,15 +100,15 @@ export function FinalVote() {
       Math.ceil((voteOpenAt + FINAL_VOTE_TIME_SECONDS * 1000 - Date.now()) / 1000)
     );
     return (
-      <div data-testid="phase-finalVote" className="flex h-full w-full flex-col items-center justify-center gap-6 bg-gray-950 p-6">
+      <div data-testid="phase-finalVote" className="flex h-full w-full flex-col items-center justify-center gap-6 bg-gradient-to-b from-red-950/30 to-gray-950 p-6">
         <p className="text-sm text-gray-400">You voted for</p>
-        <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-red-600 bg-gray-900">
-          <span className="text-4xl font-bold text-white">{votedPlayer?.index ?? '?'}</span>
+        <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-red-600 bg-red-950/40 shadow-lg shadow-red-900/20 animate-fade-in-scale">
+          <span className="text-5xl font-black text-white">{votedPlayer?.index ?? '?'}</span>
         </div>
         <p className="text-sm text-gray-500">
           {voteCount} / {alivePlayers.length} voted
         </p>
-        <p className="text-sm font-semibold text-red-400">{secondsLeft}s remaining</p>
+        <p className="text-sm font-bold text-red-400">{secondsLeft}s remaining</p>
       </div>
     );
   }
@@ -122,11 +121,13 @@ export function FinalVote() {
   );
 
   return (
-    <div data-testid="phase-finalVote" className="flex h-full w-full flex-col items-center gap-6 bg-gray-950 p-6 pt-10">
-      <p className="text-xl font-bold text-white">Vote to eliminate</p>
+    <div data-testid="phase-finalVote" className="flex h-full w-full flex-col items-center gap-6 bg-gradient-to-b from-red-950/20 to-gray-950 p-6 pt-10">
+      <p className="text-2xl font-black text-white animate-fade-in-up">Vote to eliminate</p>
 
-      {/* Live countdown */}
-      <p className="text-2xl font-black text-red-400">{secondsLeft}s</p>
+      <p className={[
+        'text-3xl font-black transition-colors',
+        secondsLeft <= 3 ? 'text-red-500 animate-urgent-pulse' : 'text-red-400',
+      ].join(' ')}>{secondsLeft}s</p>
 
       {lastAccused && (
         <p className="text-xs text-gray-500">
@@ -135,14 +136,15 @@ export function FinalVote() {
       )}
 
       <div className="grid grid-cols-2 gap-4 w-full">
-        {accusedList.map((id) => {
+        {accusedList.map((id, i) => {
           const p = playersList.find((pl) => pl.id === id);
           return (
             <button
               key={id}
               data-testid={`vote-btn-${id}`}
               onClick={() => castVote(id)}
-              className="flex flex-col items-center justify-center rounded-2xl border-2 border-gray-600 bg-gray-800 py-6 gap-1 text-white active:bg-red-900 active:border-red-600"
+              className="flex flex-col items-center justify-center rounded-2xl border-2 border-gray-700 bg-gray-900/80 py-7 gap-1 text-white transition-all active:scale-95 active:bg-red-900 active:border-red-600 animate-fade-in-up"
+              style={{ animationDelay: `${i * 100}ms` }}
             >
               <span className="text-4xl font-black">#{p?.index ?? '?'}</span>
               <span className="text-xs text-gray-400">{p?.name ?? ''}</span>

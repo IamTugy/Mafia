@@ -153,9 +153,10 @@ export const useClientStore = create<ClientStore>((set, get) => ({
 
     const myId = currentPlayerData?.id;
     const isGameActive = gameState.phase !== 'waiting' && gameState.phase !== 'ended';
+    const wasInGame = currentPlayerData?.status === 'inGame' || currentPlayerData?.status === 'eliminated';
 
-    if (!isGameActive || !backupHostId) {
-      // No failover possible — clean up
+    if (!isGameActive || !backupHostId || !wasInGame) {
+      // No failover possible or player was never part of the game — clean up
       get().clearStore();
       return;
     }
@@ -186,7 +187,7 @@ export const useClientStore = create<ClientStore>((set, get) => ({
       // to give the backup time to create its host peer
       console.log('[Failover] Reconnecting to backup host:', backupHostId);
       const name = currentPlayerData?.name ?? 'Player';
-      if (myId) storeRejoinInfo(myId, backupHostId);
+      if (myId) storeRejoinInfo(myId, backupHostId, name);
       setTimeout(() => {
         set({ isConnecting: false });
         get().initializeClient(backupHostId, name).catch((err) => {
@@ -208,10 +209,12 @@ export const useClientStore = create<ClientStore>((set, get) => ({
 
   clearStore: () => {
     const { peer } = get();
+    // Reset state BEFORE destroying peer to prevent _attemptFailover from
+    // seeing stale game state when the close event fires synchronously.
+    clearRejoinInfo();
+    set(INITIAL_STATE);
     if (peer) {
       destroyPeer(peer);
     }
-    clearRejoinInfo();
-    set(INITIAL_STATE);
   },
 }));

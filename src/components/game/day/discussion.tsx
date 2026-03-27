@@ -4,6 +4,7 @@ import { DISCUSSION_TIME_SECONDS } from '@/lib/consts';
 import { getAccusedList } from '@/lib/store/types';
 import { playDing } from '@/lib/audio/tts';
 import { NumberGrid } from '../shared/number-grid';
+import { CircularTimer } from '../shared/circular-timer';
 import { useState } from 'react';
 
 export function Discussion() {
@@ -46,15 +47,6 @@ export function Discussion() {
     setShowAccusePicker(false);
   };
 
-  // Candidates for accusation: alive, not self, not locked by another speaker
-  const accusablePlayers = playersList.filter(
-    (p) =>
-      p.status === 'inGame' &&
-      p.id !== myId &&
-      !lockedByOthers.includes(p.id)
-  );
-  void accusablePlayers;
-
   const isEliminated = currentPlayerData?.status === 'eliminated';
 
   // Eliminated player special view — full screen upside-down with X and exit button
@@ -67,14 +59,21 @@ export function Discussion() {
     const isAccused = allAccusedIds.includes(myId);
 
     return (
-      <div data-testid="phase-discussion" className="relative flex h-full w-full flex-col items-center justify-center bg-gray-950">
+      <div data-testid="phase-discussion" className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-gray-950">
+        {/* Subtle background glow when accused */}
+        {isAccused && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="h-80 w-80 rounded-full bg-red-900/15 blur-3xl animate-slow-breathe" />
+          </div>
+        )}
+
         {/* Seat number, upside-down for the player across the table */}
         <div style={{ transform: 'rotate(180deg)' }} className="flex flex-col items-center">
           <p className="text-gray-500 text-base font-medium">Your seat</p>
           <div className="relative flex items-center justify-center">
             <p
               className={[
-                'font-black leading-none select-none',
+                'font-black leading-none select-none transition-colors duration-500',
                 isAccused ? 'text-red-400' : 'text-white',
               ].join(' ')}
               style={{ fontSize: 'min(38vw, 200px)' }}
@@ -90,7 +89,7 @@ export function Discussion() {
             {accusedList.map((id) => {
               const p = playersList.find((pl) => pl.id === id);
               return (
-                <span key={id} className="rounded-full bg-red-900/60 px-3 py-1 text-sm font-bold text-red-300">
+                <span key={id} className="rounded-full bg-red-900/50 border border-red-800/60 px-3 py-1 text-sm font-bold text-red-300">
                   #{p?.index}
                 </span>
               );
@@ -108,14 +107,12 @@ export function Discussion() {
   }
 
   // Speaking player view
-  const circumference = 2 * Math.PI * 44;
-  const dashOffset = circumference * (1 - progress);
 
   // Buffer: phone is still narrating, don't show countdown yet
   if (isInBuffer) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-6 bg-gray-950 p-6">
-        <p className="text-xl font-bold text-white">Your turn to speak</p>
+        <p className="text-2xl font-black text-white animate-fade-in-up">Your turn to speak</p>
         <p className="text-sm text-gray-500 animate-pulse">Get ready…</p>
       </div>
     );
@@ -123,24 +120,9 @@ export function Discussion() {
 
   return (
     <div data-testid="phase-discussion" className="flex h-full w-full flex-col items-center justify-between bg-gray-950 p-5 pt-8 pb-8">
-      <p className="text-sm font-medium text-gray-400">Your turn to speak</p>
+      <p className="text-sm font-medium text-gray-400 animate-fade-in-up">Your turn to speak</p>
 
-      {/* Circular timer */}
-      <div className="relative flex items-center justify-center" style={{ width: 140, height: 140 }}>
-        <svg width="140" height="140" className="absolute inset-0 -rotate-90">
-          <circle cx="70" cy="70" r="44" stroke="#1f2937" strokeWidth="8" fill="none" />
-          <circle
-            cx="70" cy="70" r="44"
-            stroke={secondsLeft <= 10 ? '#ef4444' : '#3b82f6'}
-            strokeWidth="8" fill="none"
-            strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-            strokeLinecap="round"
-            className="transition-all duration-200"
-          />
-        </svg>
-        <p className="relative text-5xl font-black text-white">{secondsLeft}</p>
-      </div>
+      <CircularTimer secondsLeft={secondsLeft} progress={progress} />
 
       {/* Accusation picker or current accusation display */}
       {showAccusePicker ? (
@@ -200,21 +182,21 @@ export function Discussion() {
             <button
               data-testid="discussion-finish-btn"
               onClick={finishSpeaking}
-              className="flex-1 rounded-full bg-gray-700 py-3 text-sm font-semibold text-white active:bg-gray-600"
+              className="flex-1 rounded-full bg-gray-700 py-3 text-sm font-semibold text-white transition-all active:scale-95 active:bg-gray-600"
             >
               Finish
             </button>
             {!myAccusation ? (
               <button
                 onClick={() => setShowAccusePicker(true)}
-                className="flex-1 rounded-full bg-red-700 py-3 text-sm font-semibold text-white active:bg-red-800"
+                className="flex-1 rounded-full bg-red-700 py-3 text-sm font-semibold text-white transition-all active:scale-95 active:bg-red-800"
               >
                 Accuse
               </button>
             ) : (
               <button
                 onClick={() => setShowAccusePicker(true)}
-                className="flex-1 rounded-full border border-red-700 py-3 text-sm font-semibold text-red-400 active:bg-red-900/30"
+                className="flex-1 rounded-full border border-red-700 py-3 text-sm font-semibold text-red-400 transition-all active:scale-95 active:bg-red-900/30"
               >
                 Change Accusation
               </button>

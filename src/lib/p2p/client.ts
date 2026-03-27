@@ -3,21 +3,25 @@ import { createPeer, parseP2PMessage, serializeP2PMessage, destroyPeer } from '.
 
 const SESSION_ORIGINAL_ID_KEY = 'mafia_rejoin_original_id';
 const SESSION_HOST_ID_KEY = 'mafia_last_host_id';
+const SESSION_PLAYER_NAME_KEY = 'mafia_rejoin_player_name';
 
-export const storeRejoinInfo = (playerId: string, hostId: string): void => {
+export const storeRejoinInfo = (playerId: string, hostId: string, playerName?: string): void => {
   sessionStorage.setItem(SESSION_ORIGINAL_ID_KEY, playerId);
   sessionStorage.setItem(SESSION_HOST_ID_KEY, hostId);
+  if (playerName) sessionStorage.setItem(SESSION_PLAYER_NAME_KEY, playerName);
 };
 
-export const getStoredRejoinInfo = (): { originalId: string; hostId: string } | null => {
+export const getStoredRejoinInfo = (): { originalId: string; hostId: string; playerName?: string } | null => {
   const originalId = sessionStorage.getItem(SESSION_ORIGINAL_ID_KEY);
   const hostId = sessionStorage.getItem(SESSION_HOST_ID_KEY);
-  return originalId && hostId ? { originalId, hostId } : null;
+  const playerName = sessionStorage.getItem(SESSION_PLAYER_NAME_KEY);
+  return originalId && hostId ? { originalId, hostId, ...(playerName ? { playerName } : {}) } : null;
 };
 
 export const clearRejoinInfo = (): void => {
   sessionStorage.removeItem(SESSION_ORIGINAL_ID_KEY);
   sessionStorage.removeItem(SESSION_HOST_ID_KEY);
+  sessionStorage.removeItem(SESSION_PLAYER_NAME_KEY);
 };
 
 export interface ClientP2PCallbacks<TState> {
@@ -67,7 +71,7 @@ export const createClientP2P = async <TState>(
       connection.send(
         serializeP2PMessage({ type: 'join', id: peer.id, name: playerName })
       );
-      storeRejoinInfo(peer.id, hostId);
+      storeRejoinInfo(peer.id, hostId, playerName);
       myId = peer.id;
     }
 

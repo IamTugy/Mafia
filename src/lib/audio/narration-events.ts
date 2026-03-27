@@ -30,6 +30,7 @@ export const NarrationEvent = {
   VOTE_BEGIN: 'voteBegin',
   VOTE_ELIMINATED: 'voteEliminated',      // context: seat number
   VOTE_TIE: 'voteTie',                    // context: seat numbers
+  LAST_WORDS: 'lastWords',
 
   // ── End ────────────────────────────────────────────────────────────────
   MAFIA_WINS: 'mafiaWins',

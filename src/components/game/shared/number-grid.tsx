@@ -3,28 +3,19 @@ import { cn } from '@/lib/utils';
 export interface NumberGridPlayer {
   id: string;
   index?: number | null;
-  status?: string; // 'eliminated' = dead
+  status?: string;
 }
 
 interface NumberGridProps {
   players: NumberGridPlayer[];
   onSelect?: (playerId: string) => void;
-  /** Player ID that is currently selected/voted */
   selectedId?: string | null;
-  /** Player IDs that are disabled (can't be selected) */
   disabledIds?: string[];
-  /** Player IDs shown with a red highlight (accused) */
   redIds?: string[];
-  /** Player ID to exclude entirely (self) */
   excludeId?: string;
   className?: string;
 }
 
-/**
- * Reusable number grid used in investigation, kill vote, and accusation pickers.
- * Shows numbers in ascending seat-index order.
- * Dead players display a red ✕ and are non-interactive.
- */
 export function NumberGrid({
   players,
   onSelect,
@@ -53,27 +44,27 @@ export function NumberGrid({
             onClick={() => !isDisabled && onSelect?.(p.id)}
             disabled={isDisabled}
             className={cn(
-              'relative flex h-16 w-full items-center justify-center rounded-xl border-2 text-2xl font-bold transition-colors',
-              // Base
+              'relative flex h-16 w-full items-center justify-center rounded-xl border-2 text-2xl font-bold transition-all duration-150',
+              // Base - interactive
               !isDead && !isSelected && !isRed && !isDisabled &&
-                'border-gray-600 bg-gray-800 text-white active:bg-gray-700',
+                'border-gray-600 bg-gray-800/80 text-white active:scale-95 active:bg-gray-700',
               // Selected
               isSelected &&
-                'border-blue-400 bg-blue-900/50 text-blue-200',
+                'border-blue-400 bg-blue-900/50 text-blue-200 shadow-md shadow-blue-900/30 scale-105',
               // Accused / red highlight
               !isSelected && isRed && !isDead &&
-                'border-red-500 bg-red-900/40 text-red-300',
+                'border-red-500/80 bg-red-900/30 text-red-300 active:scale-95',
               // Disabled (not dead)
               !isDead && isDisabled && !isSelected &&
-                'border-gray-700 bg-gray-900 text-gray-600 opacity-60',
+                'border-gray-800 bg-gray-900/50 text-gray-700 opacity-50',
               // Dead
               isDead &&
-                'border-gray-800 bg-gray-900/30 text-gray-700 opacity-40 cursor-not-allowed'
+                'border-gray-800/50 bg-gray-900/20 text-gray-800 opacity-30 cursor-not-allowed'
             )}
           >
             {p.index}
             {isDead && (
-              <span className="absolute inset-0 flex items-center justify-center text-red-500 text-3xl font-black">
+              <span className="absolute inset-0 flex items-center justify-center text-red-500/60 text-3xl font-black">
                 ✕
               </span>
             )}

@@ -68,6 +68,9 @@ export const GameStateSchema = z.object({
   // Last words
   lastWordsNextPhase: z.enum(['day.discussion', 'night.mafiaKill']).optional(),
 
+  // Vote results — shown to all after final vote (voterSeat → targetSeat)
+  voteResults: z.array(z.object({ voterSeat: z.number(), targetSeat: z.number() })).optional(),
+
   // Investigation minimum duration gate
   investigationMinEndAt: z.number().optional(),   // earliest time Continue can take effect
   investigationContinueAt: z.number().optional(), // when the role pressed Continue

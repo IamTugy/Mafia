@@ -22,10 +22,10 @@ export function Seating() {
 
   return (
     <div data-testid="phase-seating" className="flex h-full w-full flex-col items-center justify-between bg-gray-950 p-6 pt-10 pb-10 select-none">
-      <div className="flex flex-col items-center gap-2 text-center">
+      <div className="flex flex-col items-center gap-3 text-center animate-fade-in-up">
         <p className="text-4xl font-black text-white">Your seat</p>
-        <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-gray-800">
-          <span className="text-6xl font-black text-white">{currentPlayerData.index}</span>
+        <div className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-white bg-gray-800 shadow-lg shadow-white/10">
+          <span className="text-7xl font-black text-white">{currentPlayerData.index}</span>
         </div>
         <p className="text-sm text-gray-400 mt-1">Sit in this position around the table</p>
       </div>
@@ -62,9 +62,9 @@ export function Seating() {
         <button
           data-testid="seating-confirm-btn"
           onClick={handleConfirm}
-          className="w-56 rounded-full bg-white py-4 text-base font-bold text-gray-900 active:bg-gray-200"
+          className="w-56 rounded-full bg-white py-4 text-base font-bold text-gray-900 transition-all active:scale-95 active:bg-gray-200 animate-fade-in-up animation-delay-200"
         >
-          I'm in my seat ✓
+          I'm in my seat
         </button>
       ) : (
         <div className="flex flex-col items-center gap-2">

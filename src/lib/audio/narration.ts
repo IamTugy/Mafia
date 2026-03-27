@@ -107,6 +107,11 @@ const LINES: Record<NarrationEventKey, string[]> = {
     'A tie! The city could not decide. All tied players are eliminated.',
     'Deadlock. The votes are split — all tied players face elimination.',
   ],
+  lastWords: [
+    'Before you go, any final words? The city listens one last time.',
+    'You may speak your final words. Make them count.',
+    'The floor is yours — one last time.',
+  ],
 
   // ── End ────────────────────────────────────────────────────────────────
   mafiaWins: [

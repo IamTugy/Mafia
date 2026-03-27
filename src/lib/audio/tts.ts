@@ -1,6 +1,17 @@
 import type { NarrationEventKey } from './narration-events';
 import { getFallbackNarration } from './narration';
 
+export interface NarrationGameContext {
+  day: number;
+  phase: string;
+  aliveCount: number;
+  eliminatedCount: number;
+  totalPlayers: number;
+  recentElimination?: { seatNumber: number; method: 'night' | 'vote' | 'disconnect' };
+  accusations?: number[];
+  isFirstNight?: boolean;
+}
+
 const getPreferredVoice = (): SpeechSynthesisVoice | null => {
   if (!('speechSynthesis' in window)) return null;
   const voices = window.speechSynthesis.getVoices();
@@ -64,9 +75,13 @@ const doSpeak = (text: string, resolve: () => void): void => {
   window.speechSynthesis.speak(utterance);
 };
 
+const _muted = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mute');
+
+export const isMuted = (): boolean => _muted;
+
 export const speak = (text: string): Promise<void> => {
   return new Promise((resolve) => {
-    if (!('speechSynthesis' in window) || !text) {
+    if (!('speechSynthesis' in window) || !text || _muted) {
       resolve();
       return;
     }
@@ -129,9 +144,53 @@ export const playDing = (): void => {
 const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> =>
   Promise.race([promise, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
 
+const buildAIPrompt = (
+  event: NarrationEventKey,
+  context?: string,
+  gameContext?: NarrationGameContext
+): string => {
+  const lines: string[] = [
+    'You are the narrator of a Mafia party game. Speak in a dark, dramatic, theatrical tone.',
+    'You speak to the players directly, as if you are the host guiding them through the night.',
+  ];
+
+  if (gameContext) {
+    lines.push('');
+    lines.push('Game Status:');
+    lines.push(`- It is ${gameContext.phase} ${gameContext.day}`);
+    lines.push(`- ${gameContext.aliveCount} of ${gameContext.totalPlayers} players remain alive`);
+    lines.push(`- ${gameContext.eliminatedCount} have been eliminated so far`);
+    if (gameContext.isFirstNight) {
+      lines.push('- This is the very first night of the game');
+    }
+    if (gameContext.recentElimination) {
+      lines.push(
+        `- Player #${gameContext.recentElimination.seatNumber} was recently eliminated by ${gameContext.recentElimination.method}`
+      );
+    }
+    if (gameContext.accusations && gameContext.accusations.length > 0) {
+      lines.push(
+        `- Players #${gameContext.accusations.join(', #')} are currently accused`
+      );
+    }
+  }
+
+  lines.push('');
+  lines.push(`Current event: ${event}`);
+  if (context) lines.push(`Details: ${context}`);
+  lines.push('');
+  lines.push('Generate one short narration line (1–2 sentences) for this event.');
+  lines.push('Keep it dramatic and varied — never repeat the same phrasing.');
+  lines.push('Do NOT mention any role names or game mechanics.');
+  lines.push('Respond with only the narration text — no quotes, no labels, no extra commentary.');
+
+  return lines.join('\n');
+};
+
 export const getNarrationLine = async (
   event: NarrationEventKey,
-  context?: string
+  context?: string,
+  gameContext?: NarrationGameContext
 ): Promise<string> => {
   if ('ai' in window) {
     try {
@@ -144,17 +203,10 @@ export const getNarrationLine = async (
           };
         }
       ).ai;
-      const session = await withTimeout(ai.languageModel.create(), 3000, null);
+      const session = await withTimeout(ai.languageModel.create(), 5000, null);
       if (session) {
-        const prompt = [
-          'You are the narrator of a Mafia party game. Speak in a dark, dramatic, theatrical tone.',
-          `Generate one short narration line (1–2 sentences) for this game event: ${event}`,
-          context ? `Context: ${context}` : '',
-          'Respond with only the narration text — no quotes, no labels, no extra commentary.',
-        ]
-          .filter(Boolean)
-          .join('\n');
-        const result = await withTimeout(session.prompt(prompt), 3000, '');
+        const prompt = buildAIPrompt(event, context, gameContext);
+        const result = await withTimeout(session.prompt(prompt), 5000, '');
         if (result?.trim()) return result.trim();
       }
     } catch {
@@ -170,9 +222,10 @@ export const getNarrationLine = async (
  */
 export const narrateEvent = async (
   event: NarrationEventKey,
-  context?: string
+  context?: string,
+  gameContext?: NarrationGameContext
 ): Promise<void> => {
-  const line = await getNarrationLine(event, context);
+  const line = await getNarrationLine(event, context, gameContext);
   await speak(line);
 };
 
